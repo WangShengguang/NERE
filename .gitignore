@@ -102,3 +102,15 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+#
+.idea/
+
+#data
+data/
+*.docx
+model_ckpt/
+
+#
+local/
+law/

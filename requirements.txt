@@ -1,0 +1,9 @@
+tensorflow
+keras
+keras-transformer
+tensor2tensor
+sklearn
+torch
+pytorch_pretrained_bert
+matplotlib
+python-intervals
