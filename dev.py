@@ -6,10 +6,16 @@ def preprocess():
     pass
 
 
-def train():
+def train_ner():
     model_name = "BERTCRF"
     from nere.ner.torch_models.trainer import Trainer
-    Trainer(model_name=model_name).run()
+    Trainer(model_name=model_name,save_dir="ner").run()
+
+
+def train_re():
+    model_name = "BERTMultitask"
+    from nere.re.torch_models.trainer import Trainer
+    Trainer(model_name=model_name,save_dir="re").run()
 
 
 def evaluate():
@@ -20,8 +26,9 @@ def evaluate():
 def main():
     logging_config("dev.log", stream_log=True, relative_path=".")
     preprocess()  # 构建词典
-    train()
-    evaluate()
+    train_ner()
+    # evaluate()
+    train_re()
 
 
 if __name__ == '__main__':

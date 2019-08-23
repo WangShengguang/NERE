@@ -19,3 +19,6 @@ class DataConfig(object):
     keras_ckpt_dir = os.path.join(model_ckpt_dir, "keras")
     # pretrain model
     bert_pretrained_dir = os.path.join(model_ckpt_dir, "bert-base-chinese-pytorch")
+
+    for _dir in [torch_ckpt_dir, keras_ckpt_dir]:
+        os.makedirs(_dir, exist_ok=True)

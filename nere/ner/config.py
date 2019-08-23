@@ -22,6 +22,8 @@ class TrainConfig(DataConfig):
     patience = 0.02
     patience_num = 3
 
+    save_mode = "full_model"  # full_model or params
+
 
 class BertConfig(object):
     gradient_accumulation_steps = 1
