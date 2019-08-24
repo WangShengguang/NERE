@@ -9,8 +9,9 @@ from nere.torch_utils import Trainer as BeseTrainer
 
 
 class Trainer(BeseTrainer):
-    def __init__(self, model_name, save_dir="re"):
-        super().__init__(model_name, save_dir)
+    def __init__(self, model_name):
+        self.model_name = model_name
+        super().__init__(model_name, save_dir=Config.save_dir)
 
     def get_model(self):
         self.data_helper = DataHelper()

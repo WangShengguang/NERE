@@ -10,6 +10,30 @@ from .config import Config
 
 random.seed(Config.rand_seed)
 
+entity_tags = {'自然人主体': 'NP',
+               '非自然人主体': 'NNP',
+               '机动车': 'MV',
+               '非机动车': 'NMV',
+               '责任认定': 'DUT',
+               '一般人身损害': 'GI',
+               '伤残': 'DIS',
+               '死亡': 'DEA',
+               '人身损害赔偿项目': 'PIC',
+               '财产损失赔偿项目': 'PLC',
+               '保险类别': 'INS',
+               '抗辩事由': 'DEF',
+               '违反道路交通信号灯': 'VTL',
+               '饮酒后驾驶': 'DAD',
+               '醉酒驾驶': 'DD',
+               '超速': 'SPE',
+               '违法变更车道': 'ICL',
+               '未取得驾驶资格': 'UD',
+               '超载': 'OVE',
+               '不避让行人': 'NAP',
+               '行人未走人行横道或过街设施': 'NCF',
+               '其他违法行为': 'OLA'
+               }
+
 
 class DataHelper(object):
 
@@ -17,6 +41,7 @@ class DataHelper(object):
         self.sequence_len = Config.sequence_len
         self.tokenizer = BertTokenizer.from_pretrained(Config.bert_pretrained_dir, do_lower_case=True)
         self.load_tags()
+        self.load_ner_tags()
 
     def load_tags(self):
         with open(os.path.join(Config.re_data_dir, "rel_labels.txt"), "r", encoding="utf-8") as f:
@@ -35,6 +60,17 @@ class DataHelper(object):
             raise ValueError("Unknown other label, must be one of 'Other'/'其他'")
         metric_labels.remove(self.other_label_id)
 
+    def load_ner_tags(self):
+        with open(os.path.join(Config.ner_data_dir, "tags.txt"), "r", encoding="utf-8") as f:
+            tags = [line.strip() for line in f.readlines()]
+        self.entity_tag2id = {"O": 0}  # B-MV I-MV
+        for tag in tags:
+            if tag not in self.entity_tag2id:
+                self.entity_tag2id[tag] = len(self.entity_tag2id)
+        self.id2entity_tag = {id: tag for id, tag in enumerate(tags)}
+        self.entity_label2tag = entity_tags
+        # self.entity_label2tag_id = {entity: idx for idx, (entity, tag) in enumerate(entity_tags.items())}
+
     def get_data(self, data_type):
         """Loads the data for each type in types from data_dir.
         :param data_type ['train', 'val', 'test']
@@ -42,6 +78,7 @@ class DataHelper(object):
         """
         assert data_type in ['train', 'val', 'test'], "data type not in ['train', 'val', 'test']"
         ent_labels, e1_indices, e2_indices, sentences, rel_labels = [], [], [], [], []  # Convert to corresponding ids
+        sentences_ent_tags = []
         with open(os.path.join(Config.re_data_dir, "{}.txt".format(data_type)), "r", encoding="utf-8") as f:
             for line in f:
                 splits = line.strip().split('\t')
@@ -62,17 +99,29 @@ class DataHelper(object):
                     logging.info("Exception: {}\t{}\t{}\n".format(e1, e1_tokens, sent_text))
                 if not e2_match:
                     logging.info("Exception: {}\t{}\t{}\n".format(e2, e2_tokens, sent_text))
+                # entity tag
+                ent_tags = np.ones(len(sent_tokens)) * self.entity_tag2id["O"]
+                try:
+                    for ent_label, ent_match in [(e1_label, e1_match), (e2_label, e2_match)]:
+                        _tag = self.entity_label2tag[ent_label]
+                        ent_tags[ent_match] = self.entity_tag2id["I-" + _tag]
+                        ent_tags[ent_match[0]] = self.entity_tag2id["B-" + _tag]
+                except:
+                    import ipdb,traceback
+                    traceback.print_exc()
+                    ipdb.set_trace()
 
+                sentences_ent_tags.append(ent_tags)
                 sentences.append(self.tokenizer.convert_tokens_to_ids(sent_tokens))
                 rel_labels.append(self.rel_label2id[rel_label])
-            assert len(sentences) == len(rel_labels)
+            assert len(sentences) == len(rel_labels) == len(sentences_ent_tags)
         # data = {}
         # data['ent_labels'] = ent_labels
         # data['e1_indices'] = e1_indices
         # data['e2_indices'] = e2_indices
         # data['sents'] = sentences
         # data['rel_labels'] = rel_labels
-        return rel_labels, ent_labels, e1_indices, e2_indices, sentences
+        return rel_labels, ent_labels, e1_indices, e2_indices, sentences, sentences_ent_tags
 
     def find_sub_list(self, all_list, sub_list):
         match_indices = []
@@ -102,7 +151,7 @@ class DataHelper(object):
             batch_tags: (tensor) shape: (batch_size, max_len)
         """
         # make a list that decides the order in which we go over the data- this avoids explicit shuffling of data
-        rel_labels, ent_labels, e1_indices, e2_indices, sentences = self.get_data(data_type)
+        rel_labels, ent_labels, e1_indices, e2_indices, sentences, sentences_ent_tags = self.get_data(data_type)
         logging.info("load {} sentence data {} ...".format(data_type, len(sentences)))
         order = list(range(len(rel_labels)))
         if _shuffle:
@@ -117,6 +166,7 @@ class DataHelper(object):
                 batch_e1_indices = [e1_indices[idx] for idx in batch_indexs]
                 batch_e2_indices = [e2_indices[idx] for idx in batch_indexs]
                 batch_sents = [sentences[idx] for idx in batch_indexs]
+                batch_ent_tags = [sentences_ent_tags[idx] for idx in batch_indexs]
                 batch_rel_labels = [rel_labels[idx] for idx in batch_indexs]
 
                 # batch length
@@ -127,6 +177,7 @@ class DataHelper(object):
                 max_len = min(batch_max_len, self.sequence_len)
                 # prepare a numpy array with the data, initialising the data with pad_idx
                 sents_padding = np.zeros((this_batch_size, max_len))
+                sents_tags_padding = np.zeros((this_batch_size, max_len))
                 e1_masks = np.zeros((this_batch_size, max_len))
                 e2_masks = np.zeros((this_batch_size, max_len))
                 # Considering that the text is too long, e2 is truncated
@@ -134,12 +185,13 @@ class DataHelper(object):
                 fake_labels = -1 * np.ones(this_batch_size)
                 # copy the data to the numpy array
                 for j in range(this_batch_size):
-                    logging.info("{}/{}".format(j, this_batch_size))
                     cur_len = len(batch_sents[j])
                     if cur_len <= max_len:
                         sents_padding[j][:cur_len] = batch_sents[j]
+                        sents_tags_padding[j][:cur_len] = batch_ent_tags[j]
                     else:
                         sents_padding[j] = batch_sents[j][:max_len]
+                        sents_tags_padding[j] = batch_ent_tags[j][:max_len]
                     if batch_e1_indices[j]:
                         e1_masks[j][batch_e1_indices[j]] = 1
                     else:
@@ -151,9 +203,11 @@ class DataHelper(object):
                     fake_label = self.get_fake_rel_label(rel_labels[j])
                     fake_labels[j] = fake_label
 
-                batch_x_data = {'ent_labels': batch_ent_labels,
-                                'e1_masks': e1_masks,
-                                'e2_masks': e2_masks,
-                                'sents': sents_padding,
-                                'fake_rel_labels': fake_labels}
-                yield batch_x_data, batch_rel_labels
+                batch_data = {'ent_labels': batch_ent_labels,
+                              'e1_masks': e1_masks,
+                              'e2_masks': e2_masks,
+                              'sents': sents_padding,
+                              "sents_tags": sents_tags_padding,
+                              "rel_labels": batch_rel_labels,
+                              'fake_rel_labels': fake_labels}
+                yield batch_data

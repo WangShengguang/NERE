@@ -10,12 +10,11 @@ from nere.re.config import Config
 
 class Trainer(object):
     def __init__(self, model_name, save_dir="."):
-        self.model_name = model_name
         self.saver = Saver(model_name, save_dir=save_dir, mode=Config.save_mode)
         self.global_step = 0
 
     def get_model(self):
-        return NotImplemented
+        raise NotImplemented
 
     def init_model(self):
         self.model.to(Config.device)
@@ -87,6 +86,8 @@ class Saver(object):
     def load(self, model=None):
         if self.mode == "full_model":
             model = torch.load(self.model_path)
+            if isinstance(model, torch.nn.DataParallel):
+                model = model.module
         else:
             model.load_state_dict(torch.load(self.model_path))
         return model

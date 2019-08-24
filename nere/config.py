@@ -1,5 +1,7 @@
 import os
 
+import torch
+
 __all__ = ["DataConfig"]
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
@@ -22,3 +24,10 @@ class DataConfig(object):
 
     for _dir in [torch_ckpt_dir, keras_ckpt_dir]:
         os.makedirs(_dir, exist_ok=True)
+
+
+class TorchConfig(object):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    gpu_nums = torch.cuda.device_count()
+    multi_gpu = False
+    torch.cuda.manual_seed_all(1234)

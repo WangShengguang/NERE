@@ -9,13 +9,20 @@ def preprocess():
 def train_ner():
     model_name = "BERTCRF"
     from nere.ner.torch_models.trainer import Trainer
-    Trainer(model_name=model_name,save_dir="ner").run()
+    Trainer(model_name=model_name).run()
 
 
 def train_re():
     model_name = "BERTMultitask"
     from nere.re.torch_models.trainer import Trainer
-    Trainer(model_name=model_name,save_dir="re").run()
+    Trainer(model_name=model_name).run()
+
+
+def train_joint():
+    ner_model = "BERTCRF"
+    re_model = "BERTMultitask"
+    from nere.joint.trainer import Trainer
+    Trainer(ner_model, re_model).run()
 
 
 def evaluate():
@@ -26,9 +33,10 @@ def evaluate():
 def main():
     logging_config("dev.log", stream_log=True, relative_path=".")
     preprocess()  # 构建词典
-    train_ner()
+    # train_ner()
     # evaluate()
-    train_re()
+    # train_re()
+    train_joint()
 
 
 if __name__ == '__main__':

@@ -56,8 +56,8 @@ class DataHelper(object):
             pad = self.tag2id["O"]
             tags = [[pad] + [self.tag2id[tag] for tag in line.strip().split(' ')] + [pad] for line in f]
         assert len(sentences) == len(tags)
-        for i in range(len(sentences)):
-            assert len(tags[i]) == len(sentences[i])
+        for tag, sentence in zip(tags, sentences):
+            assert len(tag) == len(sentence)
         return sentences, tags
 
     def batch_iter(self, data_type, batch_size, epoch_nums, _shuffle=True):
@@ -70,7 +70,7 @@ class DataHelper(object):
             x_batch = []
             y_batch = []
             for x_sample, y_sample in zip(x_data, y_data):
-                x_batch.append(x_sample)  # 注意，交换了位置
+                x_batch.append(x_sample)
                 y_batch.append(y_sample)
                 if len(x_batch) == batch_size:
                     batch_max_len = min(max([len(s) for s in x_batch]), Config.sequence_len)

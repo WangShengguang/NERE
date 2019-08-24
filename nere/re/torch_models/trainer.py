@@ -12,8 +12,9 @@ from nere.torch_utils import Trainer as BaseTrainer
 
 
 class Trainer(BaseTrainer):
-    def __init__(self, model_name, save_dir):
-        super().__init__(model_name, save_dir)
+    def __init__(self, model_name):
+        self.model_name = model_name
+        super().__init__(model_name, save_dir=Config.save_dir)
 
     def get_model(self):
         self.data_helper = DataHelper()
@@ -27,26 +28,26 @@ class Trainer(BaseTrainer):
             raise ValueError("Unknown model, must be one of 'BERTSoftmax'/'BERTMultitask'")
         return model
 
-    def train_step(self, x_batch, y_batch):
+    def train_step(self, batch_data):
         # since all data are indices, we convert them to torch LongTensors
-        x_batch["ent_labels"] = torch.tensor(x_batch["ent_labels"], dtype=torch.long).to(Config.device)
-        x_batch["e1_masks"] = torch.tensor(x_batch["e1_masks"], dtype=torch.long).to(Config.device)
-        x_batch["e2_masks"] = torch.tensor(x_batch["e2_masks"], dtype=torch.long).to(Config.device)
-        x_batch["sents"] = torch.tensor(x_batch["sents"], dtype=torch.long).to(Config.device)
-        x_batch["fake_rel_labels"] = torch.tensor(x_batch["fake_rel_labels"], dtype=torch.long).to(Config.device)
-        batch_rel_labels = torch.tensor(y_batch, dtype=torch.long).to(Config.device)
+        batch_data["ent_labels"] = torch.tensor(batch_data["ent_labels"], dtype=torch.long).to(Config.device)
+        batch_data["e1_masks"] = torch.tensor(batch_data["e1_masks"], dtype=torch.long).to(Config.device)
+        batch_data["e2_masks"] = torch.tensor(batch_data["e2_masks"], dtype=torch.long).to(Config.device)
+        batch_data["sents"] = torch.tensor(batch_data["sents"], dtype=torch.long).to(Config.device)
+        batch_data["fake_rel_labels"] = torch.tensor(batch_data["fake_rel_labels"], dtype=torch.long).to(Config.device)
+        batch_rel_labels = torch.tensor(batch_data["rel_labels"], dtype=torch.long).to(Config.device)
 
-        loss = self.model(x_batch, batch_rel_labels)
+        loss = self.model(batch_data, batch_rel_labels)
         return loss
 
     def run(self):
         self.model = self.get_model()
         self.init_model()
         logging.info("RE start train {}...".format(self.model_name))
-        for x_batch, batch_rel_labels in self.data_helper.batch_iter(data_type="train",
-                                                                     batch_size=Config.batch_size,
-                                                                     epoch_nums=Config.epoch_nums):
-            loss = self.train_step(x_batch, batch_rel_labels)
+        for batch_data in self.data_helper.batch_iter(data_type="train",
+                                                      batch_size=Config.batch_size,
+                                                      epoch_nums=Config.epoch_nums):
+            loss = self.train_step(batch_data)
             logging.info("**global_step:{} loss: {:.6f}".format(self.global_step, loss))
             self.backfoward(loss)
             self.scheduler.step(epoch=self.data_helper.epoch_num)  # 更新学习率

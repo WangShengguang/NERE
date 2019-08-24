@@ -1,6 +1,4 @@
-import torch
-
-from nere.config import DataConfig
+from nere.config import DataConfig, TorchConfig
 
 __all__ = ["Config"]
 
@@ -13,9 +11,6 @@ class TrainConfig(DataConfig):
     max_epoch_nums = 20
     min_epoch_nums = 5
 
-    save_step = 200
-    max_to_keep = 10
-    full_finetuning = True
     learning_rate = 1e-5
     weight_decay = 0.01
     clip_grad = 2
@@ -23,19 +18,16 @@ class TrainConfig(DataConfig):
     patience_num = 3
 
     rand_seed = 1234
-
+    # model save
+    max_to_keep = 10
+    save_step = 200
     save_mode = "full_model"  # full_model or params
-
-
-class TorchConfig(object):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    gpu_nums = torch.cuda.device_count()
-    multi_gpu = False
-    torch.cuda.manual_seed_all(1234)
+    save_dir = "re"
 
 
 class BertConfig(object):
     gradient_accumulation_steps = 1
+    full_finetuning = True
 
 
 class Evaluate(TrainConfig):
