@@ -101,16 +101,10 @@ class DataHelper(object):
                     logging.info("Exception: {}\t{}\t{}\n".format(e2, e2_tokens, sent_text))
                 # entity tag
                 ent_tags = np.ones(len(sent_tokens)) * self.entity_tag2id["O"]
-                try:
-                    for ent_label, ent_match in [(e1_label, e1_match), (e2_label, e2_match)]:
-                        _tag = self.entity_label2tag[ent_label]
-                        ent_tags[ent_match] = self.entity_tag2id["I-" + _tag]
-                        ent_tags[ent_match[0]] = self.entity_tag2id["B-" + _tag]
-                except:
-                    import ipdb,traceback
-                    traceback.print_exc()
-                    ipdb.set_trace()
-
+                for ent_label, ent_match in [(e1_label, e1_match), (e2_label, e2_match)]:
+                    _tag = self.entity_label2tag[ent_label]
+                    ent_tags[ent_match] = self.entity_tag2id["I-" + _tag]
+                    ent_tags[ent_match[0]] = self.entity_tag2id["B-" + _tag]
                 sentences_ent_tags.append(ent_tags)
                 sentences.append(self.tokenizer.convert_tokens_to_ids(sent_tokens))
                 rel_labels.append(self.rel_label2id[rel_label])
@@ -156,9 +150,11 @@ class DataHelper(object):
         order = list(range(len(rel_labels)))
         if _shuffle:
             random.shuffle(order)
+        logging.info("* RE data_type: {}, num_epochs: {}".format(data_type, epoch_nums))
         for epoch in trange(epoch_nums):
             self.epoch_num = epoch + 1
             # one pass over data
+            logging.info("* RE  data_type: {}, epoch: {}".format(data_type, epoch))
             for batch_num in trange(len(rel_labels) // batch_size):
                 # fetch sentences and tags
                 batch_indexs = order[batch_num * batch_size:(batch_num + 1) * batch_size]

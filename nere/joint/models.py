@@ -1,9 +1,7 @@
 """BERT + Softmax for named entity recognition"""
 
-import torch
 from pytorch_pretrained_bert.modeling import BertPreTrainedModel
 
-from nere.joint.config import Config
 from nere.ner.torch_models.models import BERTSoftmax as NerBERTSoftmax, BERTCRF as NerBERTCRF
 from nere.re.torch_models.models import BERTSoftmax as ReBERTSoftmax, BERTMultitask as ReBERTMultitask
 
@@ -23,9 +21,12 @@ class JointNerRe(BertPreTrainedModel):
 
     def forward(self, batch_data, is_train=True):
         if is_train:
-            ner_loss = self.ner(batch_data["sents"], labels=batch_data["sents_tags"])
-            re_loss = self.re(batch_data, batch_data["rel_labels"])
-            return ner_loss + re_loss
+            batch_masks = batch_data["sents"].gt(0)
+            ner_loss = self.ner(batch_data["sents"], token_type_ids=None,
+                                attention_mask=batch_masks, labels=batch_data["sents_tags"])
+            re_loss = self.re(batch_data, labels=batch_data["rel_labels"])
+            loss = ner_loss + re_loss
+            return loss
         else:
             ner_logits = self.ner(batch_data["sents"])
             re_logits = self.re(batch_data)

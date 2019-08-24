@@ -17,7 +17,7 @@ class Trainer(object):
         raise NotImplemented
 
     def init_model(self):
-        self.model.to(Config.device)
+        self.model.to(Config.device)  # without this there is no error, but it runs in CPU (instead of GPU).
         if Config.gpu_nums > 1 and Config.multi_gpu:
             self.model = torch.nn.DataParallel(self.model)
 

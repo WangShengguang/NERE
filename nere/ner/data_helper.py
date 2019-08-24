@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 
@@ -15,6 +16,7 @@ class DataHelper(object):
         self.sequence_len = Config.sequence_len
         self.tokenizer = BertTokenizer.from_pretrained(Config.bert_pretrained_dir, do_lower_case=True)
         self.load_tag()
+        self.load_entities()
 
     def load_tag(self):
         with open(os.path.join(Config.ner_data_dir, "tags.txt"), "r", encoding="utf-8") as f:
@@ -63,6 +65,7 @@ class DataHelper(object):
     def batch_iter(self, data_type, batch_size, epoch_nums, _shuffle=True):
         sentences, tags = self.load_data(data_type)
         x_data, y_data = sentences, tags
+        logging.info("* NER data_type : {} num_epochs: {}".format(data_type, epoch_nums))
         for epoch in trange(epoch_nums):
             self.epoch_num = epoch + 1
             if _shuffle:
