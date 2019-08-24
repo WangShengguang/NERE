@@ -5,8 +5,6 @@ from sklearn.metrics import accuracy_score
 from nere.metrics import MutilabelMetrics
 from nere.ner.config import Config
 from nere.ner.data_helper import DataHelper, get_entities
-from nere.ner.torch_models.models import BERTCRF, BERTSoftmax
-from nere.torch_utils import Saver
 
 
 class Predictor(object):
@@ -14,20 +12,11 @@ class Predictor(object):
         self.model_name = model_name
         self.data_helper = DataHelper()
         self.model = model  # if model else self.load_model()
-        if self.model:
-            self.model.eval()  # set model to evaluation mode  declaring to the system that we're only doing 'forward' calculations
         self.tokenizer = BertTokenizer.from_pretrained(Config.bert_pretrained_dir, do_lower_case=True)
 
     def load_model(self):
-        saver = Saver(model_name=self.model_name, mode=Config.save_mode)
-        if self.model_name == 'BERTSoftmax':
-            model = BERTSoftmax.from_pretrained(Config.bert_pretrained_dir, num_labels=len(self.data_helper.tag2id))
-        elif self.model_name == 'BERTCRF':
-            model = BERTCRF.from_pretrained(Config.bert_pretrained_dir, num_labels=len(self.data_helper.tag2id))
-        else:
-            raise ValueError("Unknown model, must be one of 'BERTSoftmax'/'BERTCRF'")
-        model = saver.load(model)
-        return model
+        if self.model:
+            self.model.eval()  # set model to evaluation mode  declaring to the system that we're only doing 'forward' calculations
 
     def cellect_entities(self, tags):
         """
@@ -49,14 +38,13 @@ class Evaluator(Predictor):
         true_tags = []
         for x_batch, y_batch in self.data_helper.batch_iter(data_type="val",
                                                             batch_size=Config.batch_size,
-                                                            epoch_nums=Config.epoch_nums):
+                                                            epoch_nums=1):
             x_batch = torch.tensor(x_batch, dtype=torch.long).to(Config.device)
             y_batch = torch.tensor(y_batch, dtype=torch.long).to(Config.device)
             _pred_ids = self.model(input_ids=x_batch, token_type_ids=None, attention_mask=x_batch.gt(0))
             # shape: (batch_size, seq_length)
             pred_tags.extend(_pred_ids.tolist())
             true_tags.extend(y_batch.tolist())
-            break
         assert len(pred_tags) == len(true_tags)
         acc, precision, recall, f1 = self.evaluate(true_tags, pred_tags)
         return acc, precision, recall, f1

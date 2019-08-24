@@ -4,26 +4,23 @@ __all__ = ["Config"]
 
 
 class TrainConfig(DataConfig):
+    # sample
     sequence_len = 512  # (h,r,t)
     batch_size = 16
-
-    epoch_nums = 20
-    max_epoch_nums = 20
-    min_epoch_nums = 5
-
+    # train params
     learning_rate = 1e-5
     weight_decay = 0.01
     clip_grad = 2
+    # early stop
+    max_epoch_nums = 20
+    min_epoch_nums = 5
     patience = 0.02
     patience_num = 3
-
-    rand_seed = 1234
-
-    # model save
+    # model save & load
+    load_pretrain = True  # 断点续训
     max_to_keep = 10
     save_step = 200
-    save_mode = "full_model"  # full_model or params
-    save_dir = "ner"
+    save_dir = "joint"
 
 
 class BertConfig(object):

@@ -1,20 +1,19 @@
+import logging
+import os
+
+from nere.utils.gpu_selector import get_available_gpu
 from nere.utils.logger import logging_config
-
-
-def preprocess():
-    """数据预处理，建立字典，提取词向量等"""
-    pass
 
 
 def train_ner():
     model_name = "BERTCRF"
-    from nere.ner.torch_models.trainer import Trainer
+    from nere.ner.torchs.trainer import Trainer
     Trainer(model_name=model_name).run()
 
 
 def train_re():
     model_name = "BERTMultitask"
-    from nere.re.torch_models.trainer import Trainer
+    from nere.re.torchs.trainer import Trainer
     Trainer(model_name=model_name).run()
 
 
@@ -31,8 +30,6 @@ def evaluate():
 
 
 def main():
-    logging_config("dev.log", stream_log=True, relative_path=".")
-    preprocess()  # 构建词典
     # train_ner()
     # evaluate()
     # train_re()
@@ -40,4 +37,8 @@ def main():
 
 
 if __name__ == '__main__':
+    logging_config("dev.log", stream_log=True)
+    available_gpu = get_available_gpu(num_gpu=1)
+    logging.info("use GPU {} ...".format(available_gpu))
+    os.environ["CUDA_VISIBLE_DEVICES"] = available_gpu
     main()

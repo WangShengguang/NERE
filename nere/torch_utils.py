@@ -1,5 +1,3 @@
-import os
-
 import torch
 import torch.nn as nn
 from torch.optim import Adam
@@ -9,8 +7,7 @@ from nere.re.config import Config
 
 
 class Trainer(object):
-    def __init__(self, model_name, save_dir="."):
-        self.saver = Saver(model_name, save_dir=save_dir, mode=Config.save_mode)
+    def __init__(self):
         self.global_step = 0
 
     def get_model(self):
@@ -65,29 +62,33 @@ class Trainer(object):
 
 
 class Saver(object):
-    def __init__(self, model_name, save_dir=".", mode=Config.save_mode):
+    """
+    https://blog.csdn.net/u011276025/article/details/78507950
+    """
+    def __init__(self, model_name, save_dir="."):
         self.model_name = model_name
-        self.mode = mode
-        model_dir = os.path.join(Config.torch_ckpt_dir, save_dir)
-        os.makedirs(model_dir, exist_ok=True)
-        self.model_path = os.path.join(Config.torch_ckpt_dir, self.model_name + ".bin")
 
-    def save(self, model):
+    def save(self, model, path=None):
         """  https://blog.csdn.net/u011276025/article/details/78507950
         :param mode: full_model or only params
         :return:
         """
+        path = path if path else self.model_path
         if self.mode == "full_model":
-            torch.save(model, self.model_path)
+            if isinstance(model, torch.nn.DataParallel):
+                model = model.module
+            torch.save(model, path)
         else:
-            torch.save(model.state_dict(), self.model_path)
-        return self.model_path
+            torch.save(model.state_dict(), path)
+        return path
 
-    def load(self, model=None):
+    def load(self, model=None, path=None):
+        path = path if path else self.model_path
         if self.mode == "full_model":
-            model = torch.load(self.model_path)
+            model = torch.load(path)
             if isinstance(model, torch.nn.DataParallel):
                 model = model.module
         else:
-            model.load_state_dict(torch.load(self.model_path))
+            assert model is not None, "need a model object ..."
+            model.load_state_dict(torch.load(path))
         return model

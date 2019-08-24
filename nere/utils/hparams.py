@@ -8,9 +8,9 @@ class Hparams(object):
     parser = argparse.ArgumentParser()
     # logging config 日志配置
     parser.add_argument('--stream_log', default=False, type=bool, help="是否将日志信息输出到标准输出")  # log print到屏幕
-    parser.add_argument('--relative_path', default=".", type=str, help="日志相对路径，默认root_path/log_name.log")
-    parser.add_argument('--level', default="info", type=str, help="日志级别")
-    parser.add_argument('--gpu', default="0", type=str, help="指定GPU编号，0 or 0,1,2 or 0,1,2...7  | nvidia-smi 查看GPU占用情况")
+    parser.add_argument('--log_level', default="info", type=str, help="日志级别")
+    parser.add_argument('--allow_gpus', default="0,1,2,3", type=str,
+                        help="指定GPU编号，0 or 0,1,2 or 0,1,2...7  | nvidia-smi 查看GPU占用情况")
 
 
 class ArgCallback(object):
@@ -34,8 +34,7 @@ class ArgCallback(object):
         func_name = list(func_names)[0]
         logging_path = logging_config("{}.log".format(func_name),
                                       stream_log=parsed_args_dict.get("stream_log", False),
-                                      relative_path=parsed_args_dict.get("relative_path", "."),
-                                      level=parsed_args_dict.get("level", "info"))
+                                      log_level=parsed_args_dict.get("log_level", "info"))
         print("\n*** calling: {}".format(func_name))
         print("*** logging_path: {}".format(logging_path))
         getattr(model, func_name)(*args, **kwargs)  # 函数调用

@@ -65,7 +65,7 @@ class DataHelper(object):
     def batch_iter(self, data_type, batch_size, epoch_nums, _shuffle=True):
         sentences, tags = self.load_data(data_type)
         x_data, y_data = sentences, tags
-        logging.info("* NER data_type : {} num_epochs: {}".format(data_type, epoch_nums))
+        logging.info("* NER data_type:{} num_epochs: {}".format(data_type, epoch_nums))
         for epoch in trange(epoch_nums):
             self.epoch_num = epoch + 1
             if _shuffle:

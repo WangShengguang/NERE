@@ -150,12 +150,11 @@ class DataHelper(object):
         order = list(range(len(rel_labels)))
         if _shuffle:
             random.shuffle(order)
-        logging.info("* RE data_type: {}, num_epochs: {}".format(data_type, epoch_nums))
+        logging.info("* RE data_type:{}, num_epochs: {}".format(data_type, epoch_nums))
         for epoch in trange(epoch_nums):
             self.epoch_num = epoch + 1
             # one pass over data
-            logging.info("* RE  data_type: {}, epoch: {}".format(data_type, epoch))
-            for batch_num in trange(len(rel_labels) // batch_size):
+            for batch_num in range(len(rel_labels) // batch_size):
                 # fetch sentences and tags
                 batch_indexs = order[batch_num * batch_size:(batch_num + 1) * batch_size]
                 batch_ent_labels = [ent_labels[idx] for idx in batch_indexs]

@@ -4,8 +4,6 @@ from pytorch_pretrained_bert import BertTokenizer
 from nere.metrics import MutilabelMetrics
 from nere.re.config import Config
 from nere.re.data_helper import DataHelper
-from nere.re.torch_models.models import BERTMultitask, BERTSoftmax
-from nere.torch_utils import Saver
 
 
 class Predictor(object):
@@ -13,20 +11,11 @@ class Predictor(object):
         self.model_name = model_name
         self.data_helper = DataHelper()
         self.model = model
-        if self.model:
-            self.model.eval()  # set model to evaluation mode  declaring to the system that we're only doing 'forward' calculations
         self.tokenizer = BertTokenizer.from_pretrained(Config.bert_pretrained_dir, do_lower_case=True)
 
     def load_model(self):
-        saver = Saver(model_name=self.model_name, mode=Config.save_mode)
-        if self.model_name == 'BERTSoftmax':
-            model = BERTSoftmax.from_pretrained(Config.bert_pretrained_dir, num_labels=len(self.data_helper.tag2id))
-        elif self.model_name == 'BERTMultitask':
-            model = BERTMultitask.from_pretrained(Config.bert_pretrained_dir, num_labels=len(self.data_helper.tag2id))
-        else:
-            raise ValueError("Unknown model, must be one of 'BERTSoftmax'/'BERTCRF'")
-        model = saver.load(model)
-        return model
+        if self.model:
+            self.model.eval()  # set model to evaluation mode  declaring to the system that we're only doing 'forward' calculations
 
 
 class Evaluator(Predictor):
@@ -39,7 +28,7 @@ class Evaluator(Predictor):
         true_tags = []
         for batch_data in self.data_helper.batch_iter(data_type="val",
                                                       batch_size=Config.batch_size,
-                                                      epoch_nums=Config.epoch_nums):
+                                                      epoch_nums=1):
             batch_data["ent_labels"] = torch.tensor(batch_data["ent_labels"], dtype=torch.long).to(Config.device)
             batch_data["e1_masks"] = torch.tensor(batch_data["e1_masks"], dtype=torch.long).to(Config.device)
             batch_data["e2_masks"] = torch.tensor(batch_data["e2_masks"], dtype=torch.long).to(Config.device)

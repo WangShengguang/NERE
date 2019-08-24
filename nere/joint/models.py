@@ -1,9 +1,7 @@
-"""BERT + Softmax for named entity recognition"""
-
 from pytorch_pretrained_bert.modeling import BertPreTrainedModel
 
-from nere.ner.torch_models.models import BERTSoftmax as NerBERTSoftmax, BERTCRF as NerBERTCRF
-from nere.re.torch_models.models import BERTSoftmax as ReBERTSoftmax, BERTMultitask as ReBERTMultitask
+from nere.ner.torchs.models import BERTSoftmax as NerBERTSoftmax, BERTCRF as NerBERTCRF
+from nere.re.torchs.models import BERTSoftmax as ReBERTSoftmax, BERTMultitask as ReBERTMultitask
 
 
 class JointNerRe(BertPreTrainedModel):
