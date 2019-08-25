@@ -41,6 +41,7 @@ class Trainer(BeseTrainer):
         self.model = self.get_model()
         if Config.load_pretrain and Path(self.model_path).is_file():
             self.model.load_state_dict(torch.load(self.model_path))  # 断点续训
+            logging.info("load model from {}".format(self.model_path))
         self.init_model()
         logging.info("NER start train {}...".format(self.model_name))
         last_epoch_num = 0
@@ -58,14 +59,14 @@ class Trainer(BeseTrainer):
                 acc, precision, recall, f1 = Evaluator(model=self.model).test()
                 logging.info("acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
                     acc, precision, recall, f1))
-                if f1 - best_val_f1 > 0:
+                if f1 > best_val_f1:
                     torch.save(self.model.state_dict(), self.model_path)
                     logging.info("** - Found new best F1 ,save to model_path: {}".format(self.model_path))
-                    best_val_f1 = f1
                     if f1 - best_val_f1 < Config.patience:
                         patience_counter += 1
                     else:
                         patience_counter = 0
+                    best_val_f1 = f1
                 else:
                     patience_counter += 1
 

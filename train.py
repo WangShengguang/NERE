@@ -27,6 +27,14 @@ def train_joint():
     Trainer(ner_model, re_model).run()
 
 
+def train_joint_ner():
+    logging_config("joint_ner.log")
+    ner_model = "BERTCRF"
+    re_model = "BERTMultitask"
+    from nere.joint.ner_trainer import JointNerTrainer
+    JointNerTrainer(ner_model).run()
+
+
 def main():
     ''' Parse command line arguments and execute the code
         --stream_log, --relative_path, --level
@@ -35,7 +43,7 @@ def main():
     parser = Hparams().parser
     # 函数名参数
     parser.add_argument('--train', type=str,
-                        choices=["ner", "re", "joint"],
+                        choices=["ner", "re", "joint", "joint_ner"],
                         help="模型训练")
     parser.add_argument('--model', type=str,
                         choices=["BERTCRF", "BERTMultitask"],
@@ -53,6 +61,8 @@ def main():
         train_re()
     elif args.train == "joint":
         train_joint()
+    elif args.train == "joint_ner":
+        train_joint_ner()
     else:
         # 不需要接收参数的函数可放在此处执行;日志：函数名.log
         ArgCallback(vars(args), __name__)  # 自动寻找并调用此模块(manage.py) 中与参数名同名的函数

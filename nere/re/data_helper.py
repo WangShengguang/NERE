@@ -115,6 +115,7 @@ class DataHelper(object):
         # data['e2_indices'] = e2_indices
         # data['sents'] = sentences
         # data['rel_labels'] = rel_labels
+        # data["sentences_ent_tags"]=sentences_ent_tags
         return rel_labels, ent_labels, e1_indices, e2_indices, sentences, sentences_ent_tags
 
     def find_sub_list(self, all_list, sub_list):
@@ -146,13 +147,12 @@ class DataHelper(object):
         """
         # make a list that decides the order in which we go over the data- this avoids explicit shuffling of data
         rel_labels, ent_labels, e1_indices, e2_indices, sentences, sentences_ent_tags = self.get_data(data_type)
-        logging.info("load {} sentence data {} ...".format(data_type, len(sentences)))
         order = list(range(len(rel_labels)))
-        if _shuffle:
-            random.shuffle(order)
-        logging.info("* RE data_type:{}, num_epochs: {}".format(data_type, epoch_nums))
+        logging.info("* RE load data:{}, data_type:{}, num_epochs: {}".format(len(sentences), data_type, epoch_nums))
         for epoch in trange(epoch_nums):
             self.epoch_num = epoch + 1
+            if _shuffle:
+                random.shuffle(order)
             # one pass over data
             for batch_num in range(len(rel_labels) // batch_size):
                 # fetch sentences and tags

@@ -39,9 +39,8 @@ class Evaluator(Predictor):
                 Config.device)
             batch_data["sents_tags"] = torch.tensor(batch_data["sents_tags"], dtype=torch.long).to(Config.device)
             batch_data["rel_labels"] = torch.tensor(batch_data["rel_labels"], dtype=torch.long).to(Config.device)
-
-            ner_logits, re_logits = self.model(batch_data, is_train=False)  # shape: (batch_size, seq_length)
-
+            with torch.no_grad():  # 适用于测试阶段，不需要反向传播
+                ner_logits, re_logits = self.model(batch_data, is_train=False)  # shape: (batch_size, seq_length)
             ner_pred_tags.extend(ner_logits.tolist())
             ner_true_tags.extend(batch_data["sents_tags"].tolist())
             re_pred_tags.extend(re_logits.tolist())
