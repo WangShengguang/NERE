@@ -6,7 +6,7 @@ import torch
 from nere.re.config import Config
 from nere.re.data_helper import DataHelper
 from nere.re.torchs.models import BERTMultitask, BERTSoftmax
-from nere.torch_utils import Trainer as BaseTrainer
+from nere.model_urils.torch_utils import Trainer as BaseTrainer
 from .evaluator import Evaluator
 
 

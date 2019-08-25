@@ -7,6 +7,8 @@ __all__ = ["DataConfig"]
 cur_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.dirname(cur_dir)
 
+model_ckpt_dir = os.path.join(root_dir, "model_ckpt")
+
 
 class DataConfig(object):
     """
@@ -16,14 +18,11 @@ class DataConfig(object):
     ner_data_dir = os.path.join(data_dir, "ner")
     re_data_dir = os.path.join(data_dir, "re")
     # checkpoint
-    model_ckpt_dir = os.path.join(root_dir, "model_ckpt")
+    tf_ckpt_dir = os.path.join(model_ckpt_dir, "tf")
     torch_ckpt_dir = os.path.join(model_ckpt_dir, "torch")
     keras_ckpt_dir = os.path.join(model_ckpt_dir, "keras")
     # pretrain model
     bert_pretrained_dir = os.path.join(model_ckpt_dir, "bert-base-chinese-pytorch")
-
-    for _dir in [torch_ckpt_dir, keras_ckpt_dir]:
-        os.makedirs(_dir, exist_ok=True)
 
 
 class TorchConfig(object):
@@ -31,3 +30,7 @@ class TorchConfig(object):
     gpu_nums = torch.cuda.device_count()
     multi_gpu = False
     torch.cuda.manual_seed_all(1234)
+
+
+for _dir in [DataConfig.torch_ckpt_dir, DataConfig.keras_ckpt_dir, DataConfig.tf_ckpt_dir]:
+    os.makedirs(_dir, exist_ok=True)

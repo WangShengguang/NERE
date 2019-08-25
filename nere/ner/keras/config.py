@@ -1,13 +1,13 @@
-from nere.config import DataConfig, TorchConfig
-
 __all__ = ["Config"]
+
+from nere.config import DataConfig, TorchConfig
 
 
 class TrainConfig(DataConfig):
-    # sample data
-    rand_seed = 1234
+    # sample
     sequence_len = 512
     batch_size = 16
+    embedding_dim = 128
     # train params
     learning_rate = 1e-5
     weight_decay = 0.01
@@ -21,7 +21,7 @@ class TrainConfig(DataConfig):
     load_pretrain = True  # 断点续训
     max_to_keep = 10
     save_step = 200
-    save_dir = "re"
+    save_dir = "ner"
 
 
 class BertConfig(object):

@@ -1,14 +1,15 @@
 import logging
 import os
+import traceback
 from pathlib import Path
 
 import torch
 
 from nere.joint.config import Config
 from nere.joint.evaluator import Evaluator
-from nere.joint.models import JointNerRe, nnJointNerRe
+from nere.joint.models import nnJointNerRe
 from nere.re.data_helper import DataHelper
-from nere.torch_utils import Trainer as BaseTrainer
+from nere.model_urils.torch_utils import Trainer as BaseTrainer
 
 
 class Trainer(BaseTrainer):
@@ -51,9 +52,14 @@ class Trainer(BaseTrainer):
 
     def run(self):
         self.model = self.get_model()
-        if Config.load_pretrain and Path(self.joint_path).is_file():
-            self.model.load_state_dict(torch.load(self.joint_path))  # 断点续训
-            logging.info("load model from {}".format(self.joint_path))
+        # if Config.load_pretrain and Path(self.joint_path).is_file():
+        #     self.model.load_state_dict(torch.load(self.joint_path))  # 断点续训
+        #     logging.info("load model from {}".format(self.joint_path))
+        # 分别load
+        if Config.load_pretrain and Path(self.ner_path).is_file():
+            self.model.ner.load_state_dict(torch.load(self.ner_path))  # 断点续训
+            self.model.re.load_state_dict(torch.load(self.re_path))  # 断点续训
+            logging.info("load model from ner_path:{}, re_path:{}".format(self.ner_path, self.re_path))
         self.init_model()
         logging.info("NER&RE start train {}+{}...".format(self.ner_model, self.re_model))
         last_epoch_num = 0
@@ -62,35 +68,47 @@ class Trainer(BaseTrainer):
         for batch_data in self.data_helper.batch_iter(data_type="train",
                                                       batch_size=Config.batch_size,
                                                       epoch_nums=Config.max_epoch_nums):
-            loss = self.train_step(batch_data, is_train=True)
+            try:
+                loss = self.train_step(batch_data, is_train=True)
+            except:
+                # batch_size=15, 469 step ;RuntimeError: CUDA out of memory. Tried to allocate
+                logging.error(traceback.format_exc())
+                continue
             epoch_num = self.data_helper.epoch_num
             self.scheduler.step(epoch=epoch_num)  # 更新学习率
             logging.info("* global_step:{} loss: {:.4f}".format(self.global_step, loss))
-            if epoch_num > last_epoch_num:
+            if epoch_num > last_epoch_num or self.global_step % 200 == 0:
                 last_epoch_num = epoch_num
                 metrics = Evaluator(model=self.model).test()
                 logging.info("*NER acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(*metrics["NER"]))
                 logging.info("* RE acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(*metrics["RE"]))
-                ave_f1 = (metrics["NER"][-1] + metrics["RE"][-1]) / 2
+                ner_f1 = metrics["NER"][-1]
+                re_f1 = metrics["RE"][-1]
+                ave_f1 = (ner_f1 + re_f1) / 2
                 if ave_f1 > best_val_f1_dict["Joint"]["Joint"]:
                     # model_to_save = self.model.module if hasattr(self.model, 'module') else self.model
                     torch.save(self.model.state_dict(), self.joint_path)  # Only save the model it-self
-                    logging.info("** - Found new best F1 ,save to model_path: {}".format(self.joint_path))
+                    logging.info("** - Found new best NER&RE F1,ave_f1:{:.4f},ner_f1:{:.4f},re_f1:{:.4f}"
+                                 " ,save to model_path: {}".format(ave_f1, ner_f1, re_f1, self.joint_path))
                     if ave_f1 - best_val_f1_dict["Joint"]["Joint"] < Config.patience:
                         patience_counter += 1
                     else:
                         patience_counter = 0
-                    best_val_f1_dict["Joint"] = {"Joint": ave_f1, "NER": metrics["NER"][-1], "RE": metrics["RE"][-1]}
+                    best_val_f1_dict["Joint"] = {"Joint": ave_f1, "NER": ner_f1, "RE": re_f1}
                 else:
                     patience_counter += 1
-                if metrics["NER"][-1] > best_val_f1_dict["NER"]:
-                    best_val_f1_dict["NER"] = metrics["NER"][-1]
+                if ner_f1 > best_val_f1_dict["NER"]:
+                    best_val_f1_dict["NER"] = ner_f1
                     torch.save(self.model.ner.state_dict(), self.ner_path)  # Only save the model it-self
-                if metrics["RE"][-1] > best_val_f1_dict["RE"]:
-                    best_val_f1_dict["RE"] = metrics["RE"][-1]
+                    logging.info("** - Found new best NER F1: {:.4f} ,save to model_path: {}".format(
+                        ner_f1, self.joint_path))
+                if re_f1 > best_val_f1_dict["RE"]:
+                    best_val_f1_dict["RE"] = re_f1
                     torch.save(self.model.re.state_dict(), self.re_path)  # Only save the model it-self
+                    logging.info("** - Found new best RE F1:{:.4f} ,save to model_path: {}".format(
+                        re_f1, self.joint_path))
             # Early stopping and logging best f1
             if (patience_counter >= Config.patience_num and epoch_num > Config.min_epoch_nums) \
                     or epoch_num == Config.max_epoch_nums:
-                logging.info("Best val f1: {:05.2f}".format(best_val_f1_dict))
+                logging.info("Best val f1: {}".format(best_val_f1_dict))
                 break

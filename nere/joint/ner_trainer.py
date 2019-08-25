@@ -8,7 +8,7 @@ from nere.joint.config import Config
 from nere.ner.torchs.evaluator import Evaluator as NerEvaluator
 from nere.ner.torchs.models import BERTSoftmax, BERTCRF
 from nere.re.data_helper import DataHelper
-from nere.torch_utils import Trainer as BaseTrainer
+from nere.model_urils.torch_utils import Trainer as BaseTrainer
 
 
 class JointNerTrainer(BaseTrainer):

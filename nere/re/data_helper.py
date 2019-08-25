@@ -3,6 +3,7 @@ import os
 import random
 
 import numpy as np
+from keras.preprocessing.sequence import pad_sequences
 from pytorch_pretrained_bert import BertTokenizer
 from tqdm import trange
 
@@ -206,3 +207,20 @@ class DataHelper(object):
                               "rel_labels": batch_rel_labels,
                               'fake_rel_labels': fake_labels}
                 yield batch_data
+
+    def get_samples(self, data_type, sample_type):
+        """
+        :param data_type: traib,val,test
+        :param sample_type:  ner,re,joint
+        :return:
+        """
+        rel_labels, ent_labels, e1_indices, e2_indices, sentences, sentences_ent_tags = self.get_data(data_type)
+        logging.info("* RE load data:{}, data_type:{}".format(len(sentences), data_type))
+        # max_sequence_len = min(Config.sequence_len, [len(s) for s in sentences])
+        max_sequence_len = Config.sequence_len
+        if sample_type == "ner":
+            x_data = pad_sequences(sentences, maxlen=max_sequence_len, dtype=int,
+                                   padding="post", truncating='post', value=0)
+            y_data = pad_sequences(sentences_ent_tags, maxlen=max_sequence_len, dtype=int,
+                                   padding="post", truncating='post', value=self.entity_tag2id["O"])
+            return x_data, y_data

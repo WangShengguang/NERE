@@ -5,7 +5,7 @@ __all__ = ["Config"]
 
 class TrainConfig(DataConfig):
     # sample
-    sequence_len = 512  # (h,r,t)
+    sequence_len = 300  # 512
     batch_size = 16
     # train params
     learning_rate = 1e-5
