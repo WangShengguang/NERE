@@ -8,7 +8,7 @@
 
     - [RuntimeError: CUDA out of memory. Tried to allocate 70.00 MiB](https://blog.csdn.net/pursuit_zhangyu/article/details/88717635)
         > - soved
-
+    - [RuntimeError: CUDA error: device-side assert triggered]()
 
 
 

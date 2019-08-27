@@ -5,7 +5,7 @@ from nere.config import DataConfig, TorchConfig
 
 class TrainConfig(DataConfig):
     # sample
-    sequence_len = 512
+    max_len = 512
     batch_size = 16
     embedding_dim = 128
     # train params

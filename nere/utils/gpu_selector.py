@@ -1,5 +1,6 @@
 import os
 import time
+import traceback
 
 
 def get_available_gpu(num_gpu=1, min_memory=1000, try_times=3, allow_gpus="0", verbose=False):
@@ -14,8 +15,13 @@ def get_available_gpu(num_gpu=1, min_memory=1000, try_times=3, allow_gpus="0", v
     while try_times:
         try_times -= 1
         info_text = os.popen('nvidia-smi --query-gpu=utilization.gpu,memory.free --format=csv').read()
-        gpu_info = [(str(gpu_id), int(memory.replace('%', '').replace('MiB', '').split(',')[1].strip()))
-                    for gpu_id, memory in enumerate(info_text.split('\n')[1:-1])]
+        try:
+            gpu_info = [(str(gpu_id), int(memory.replace('%', '').replace('MiB', '').split(',')[1].strip()))
+                        for gpu_id, memory in enumerate(info_text.split('\n')[1:-1])]
+        except:
+            if verbose:
+                print(traceback.format_exc())
+            return "Not found gpu info ..."
         gpu_info.sort(key=lambda info: info[1], reverse=True)  # 内存从高到低排序
         avilable_gpu = []
         for gpu_id, memory in gpu_info:

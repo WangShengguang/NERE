@@ -3,26 +3,23 @@ import torch.nn as nn
 from torch.optim import Adam
 from torch.optim.lr_scheduler import LambdaLR
 
-from nere.re.config import Config
+from nere.config import Config
 
 
 class Trainer(object):
     def __init__(self):
         self.global_step = 0
         self.no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
-        self.exclude_params = re_BERTMultitask_not_used_params
+        self.exclude_params = not_used_params
 
-    def get_model(self):
-        raise NotImplemented
-
-    def init_model(self):
-        self.model.to(Config.device)  # without this there is no error, but it runs in CPU (instead of GPU).
+    def init_model(self, model):
+        model.to(Config.device)  # without this there is no error, but it runs in CPU (instead of GPU).
         if Config.gpu_nums > 1 and Config.multi_gpu:
-            self.model = torch.nn.DataParallel(self.model)
+            model = torch.nn.DataParallel(model)
 
         if Config.full_finetuning:
             pass  # TODO 参考源代码含义
-        param_optimizer = list(self.model.named_parameters())
+        param_optimizer = list(model.named_parameters())
 
         optimizer_grouped_parameters = [
             {'params': [p for n, p in param_optimizer if
@@ -35,10 +32,6 @@ class Trainer(object):
         self.optimizer = Adam(optimizer_grouped_parameters, lr=Config.learning_rate)
         self.scheduler = LambdaLR(self.optimizer, lr_lambda=lambda epoch: 1 / (1 + 0.05 * epoch))
 
-    def forward(self, x_batch, y_batch):
-        loss = self.model(x_batch, y_batch)
-        return loss
-
     def backfoward(self, loss):
         if Config.gpu_nums > 1 and Config.multi_gpu:
             loss = loss.mean()  # mean() to average on multi-gpu
@@ -46,7 +39,6 @@ class Trainer(object):
             loss = loss / Config.gradient_accumulation_steps
         # compute gradients of all variables wrt loss
         loss.backward()
-        self.global_step += 1
 
         if self.global_step % Config.gradient_accumulation_steps == 0:
             # gradient clipping
@@ -58,8 +50,8 @@ class Trainer(object):
         return loss
 
 
-re_BERTMultitask_not_used_params = ['cls.predictions.bias', 'cls.predictions.transform.dense.weight',
-                                    'cls.predictions.transform.dense.bias',
-                                    'cls.predictions.transform.LayerNorm.weight',
-                                    'cls.predictions.transform.LayerNorm.bias', 'cls.predictions.decoder.weight',
-                                    'cls.seq_relationship.weight', 'cls.seq_relationship.bias']
+not_used_params = ['cls.predictions.bias', 'cls.predictions.transform.dense.weight',
+                   'cls.predictions.transform.dense.bias',
+                   'cls.predictions.transform.LayerNorm.weight',
+                   'cls.predictions.transform.LayerNorm.bias', 'cls.predictions.decoder.weight',
+                   'cls.seq_relationship.weight', 'cls.seq_relationship.bias']

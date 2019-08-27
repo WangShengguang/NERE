@@ -1,7 +1,7 @@
 from pytorch_pretrained_bert.modeling import BertPreTrainedModel
 
-from nere.ner.torchs.models import BERTSoftmax as NerBERTSoftmax, BERTCRF as NerBERTCRF
-from nere.re.torchs.models import BERTSoftmax as ReBERTSoftmax, BERTMultitask as ReBERTMultitask
+from nere.ner.torch_models import BERTSoftmax as NerBERTSoftmax, BERTCRF as NerBERTCRF
+from nere.re.torch_models import BERTSoftmax as ReBERTSoftmax, BERTMultitask as ReBERTMultitask
 
 
 class JointNerRe(BertPreTrainedModel):
@@ -21,7 +21,7 @@ class JointNerRe(BertPreTrainedModel):
         if is_train:
             batch_masks = batch_data["sents"].gt(0)
             ner_loss = self.ner(batch_data["sents"], token_type_ids=None,
-                                attention_mask=batch_masks, labels=batch_data["sents_tags"])
+                                attention_mask=batch_masks, labels=batch_data["ent_tags"])
             re_loss = self.re(batch_data, labels=batch_data["rel_labels"])
             loss = ner_loss + re_loss
             return loss

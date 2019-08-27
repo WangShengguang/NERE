@@ -194,7 +194,6 @@ class CRF(nn.Module):
             # Transition score to next tag, only added if next timestep is valid (mask == 1)
             # shape: (batch_size,)
             score += self.transitions[tags[i - 1], tags[i]] * mask[i]
-
             # Emission score for next tag, only added if next timestep is valid (mask == 1)
             # shape: (batch_size,)
             score += emissions[i, torch.arange(batch_size), tags[i]] * mask[i]

@@ -28,9 +28,9 @@ def train(model_name):
         assert model_name in models_func, "{} is not exist ".format(model_name)
         get_model = models_func[model_name]
         model = get_model(vocab_size=len(data_helper.tokenizer.vocab),
-                          max_sequence_len=Config.sequence_len,
+                          max_sequence_len=Config.max_len,
                           embedding_dim=Config.embedding_dim,
-                          num_classes=Config.sequence_len,
+                          num_classes=Config.max_len,
                           embedding_matrix=None)
         model.compile(
             loss=keras.losses.binary_crossentropy,  # 'binary_crossentropy',categorical_crossentropy

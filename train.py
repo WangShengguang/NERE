@@ -10,19 +10,15 @@ def torch_train(task, model_name=None):
     ner_model = "BERTCRF"
     re_model = "BERTMultitask"
     if task == "ner":
-        from nere.ner.torchs.trainer import Trainer
-        Trainer(model_name=ner_model).run()
+        from nere.torch_trainer import Trainer
+        Trainer(model_name=ner_model, task=task).run()
     elif task == "re":
-        logging_config("re.log")
-        from nere.re.torchs.trainer import Trainer
-        Trainer(model_name=re_model).run()
+        from nere.torch_trainer import Trainer
+        Trainer(model_name=re_model, task=task).run()
     elif task == "joint":
-        logging_config("joint.log")
-        from nere.joint.trainer import Trainer
-        Trainer(ner_model, re_model).run()
-    elif task == "joint_ner":
-        from nere.joint.ner_trainer import JointNerTrainer
-        JointNerTrainer(ner_model).run()
+        # from nere.joint.trainer import Trainer
+        from nere.torch_trainer import JoinTrainer
+        JoinTrainer(ner_model, re_model).run()
 
 
 def keras_train(task, model_name=None):
