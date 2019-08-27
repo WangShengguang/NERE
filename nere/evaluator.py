@@ -1,7 +1,7 @@
 from sklearn.metrics import accuracy_score
 
 from nere.config import Config
-from nere.data_helper import DataHelper
+from nere.data_helper import DataHelper, entity_label2tag
 from nere.metrics import MutilabelMetrics
 
 
@@ -9,7 +9,8 @@ class Evaluator(object):
     def __init__(self):
         self.data_helper = DataHelper()
         self.val_data = self.data_helper.get_joint_data("val")
-        self.ner_metrics = MutilabelMetrics(list(self.data_helper.ent_tag2id.keys()))
+        # self.ner_metrics = MutilabelMetrics(list(self.data_helper.ent_tag2id.keys()))
+        self.ner_metrics = MutilabelMetrics(list(entity_label2tag.values()))
         self.re_metrics = MutilabelMetrics(list(self.data_helper.rel_label2id.keys()))
 
     def load_model(self, model_path=""):
@@ -22,7 +23,7 @@ class Evaluator(object):
             res = self.test_ner(model)  # acc, precision, recall, f1
         elif task == "re":
             res = self.test_re(model)
-        elif task == "re":
+        elif task == "joint":
             res = self.test_joint(model)
         else:
             raise ValueError(task)
@@ -35,16 +36,27 @@ class Evaluator(object):
             # with torch.no_grad():  # 适用于测试阶段，不需要反向传播
             ner_logits, re_logits = model(batch_data, is_train=False)  # shape: (batch_size, seq_length)
             ner_pred_tags.extend(ner_logits.tolist())
-            ner_true_tags.extend(batch_data["sents_tags"].tolist())
+            ner_true_tags.extend(batch_data["ent_tags"].tolist())
             re_pred_tags.extend(re_logits.tolist())
             re_true_tags.extend(batch_data["rel_labels"].tolist())
         assert len(ner_pred_tags) == len(ner_true_tags) == len(re_pred_tags) == len(re_true_tags)
-        metrics = {"NER": [], "RE": []}
-        acc, precision, recall, f1 = self.evaluate_ner(ner_true_tags, ner_pred_tags)
-        metrics["NER"] = acc, precision, recall, f1
-        acc, precision, recall, f1 = self.re_metrics.get_metrics_1d(re_true_tags, re_pred_tags)
-        metrics["RE"] = acc, precision, recall, f1
+        metrics = {}
+        metrics["NER"] = self.evaluate_ner(ner_true_tags, ner_pred_tags)  # cc, precision, recall, f1
+        metrics["RE"] = self.re_metrics.get_metrics_1d(re_true_tags, re_pred_tags)
         return metrics
+
+    def test_ner(self, model=None):
+        if model is None:
+            model = self.load_model("ner")
+        pred_tags = []
+        true_tags = []
+        for batch_data in self.data_helper.batch_iter(self.val_data, batch_size=Config.batch_size, re_type="torch"):
+            batch_pred_ids = model(batch_data)  # shape: (batch_size, 1)
+            pred_tags.extend(batch_pred_ids.tolist())
+            true_tags.extend(batch_data["ent_tags"].tolist())
+        assert len(pred_tags) == len(true_tags)
+        acc, precision, recall, f1 = self.evaluate_ner(true_tags, pred_tags)
+        return acc, precision, recall, f1
 
     def test_re(self, model=None):
         if model is None:
@@ -59,19 +71,6 @@ class Evaluator(object):
         acc, precision, recall, f1 = self.re_metrics.get_metrics_1d(true_tags, pred_tags)
         return acc, precision, recall, f1
 
-    def test_ner(self, model=None):
-        if model is None:
-            model = self.load_model("ner")
-        pred_tags = []
-        true_tags = []
-        for batch_data in self.data_helper.batch_iter(self.val_data, batch_size=Config.batch_size, re_type="torch"):
-            batch_pred_ids = model(batch_data)  # shape: (batch_size, 1)
-            pred_tags.extend(batch_pred_ids.tolist())
-            true_tags.extend(batch_data["ent_tags"].tolist())
-        assert len(pred_tags) == len(true_tags)
-        acc, precision, recall, f1 = self.re_metrics.get_metrics_1d(true_tags, pred_tags)
-        return acc, precision, recall, f1
-
     def evaluate_ner(self, batch_y_ent_ids, batch_pred_ent_ids):
         _pred_tags = [[self.data_helper.id2ent_tag.get(tag_id, "O") for tag_id in line_tags]
                       for line_tags in batch_y_ent_ids]
@@ -80,7 +79,7 @@ class Evaluator(object):
         acc = accuracy_score(sum(_true_tags, []), sum(_pred_tags, []))
         true_entities = self.cellect_entities(_true_tags)
         pred_entities = self.cellect_entities(_pred_tags)
-        precision, recall, f1 = self.re_metrics.get_metrics(true_entities, pred_entities)
+        precision, recall, f1 = self.ner_metrics.get_metrics(true_entities, pred_entities)
         return acc, precision, recall, f1
 
     def cellect_entities(self, tags):

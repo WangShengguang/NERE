@@ -46,8 +46,6 @@ class DataHelper(object):
         self.load_re_tags()
         self.load_ner_tags()
         self.sentences_hash2ent_tags = None
-        self.re_data = None
-        self.ner_data = None
 
     def load_re_tags(self):
         with open(os.path.join(Config.re_data_dir, "rel_labels.txt"), "r", encoding="utf-8") as f:
@@ -159,10 +157,10 @@ class DataHelper(object):
         omit_count = 0
         if self.sentences_hash2ent_tags is None:
             self.sentences_hash2ent_tags = self.get_sentences_ent_tags()
-            self.re_data = self.get_re_data(data_type)
+        re_data = self.get_re_data(data_type)
         joint_data = {'ent_labels': [], 'e1_indices': [], 'e2_indices': [], 'sents': [], 'rel_labels': [],
                       'ent_tags': []}
-        for i, s in enumerate(self.re_data["sents"]):
+        for i, s in enumerate(re_data["sents"]):
             try:
                 ent_tag = self.sentences_hash2ent_tags[hash(tuple(s))]
             except:
@@ -171,15 +169,15 @@ class DataHelper(object):
             else:  # "no error"
                 assert len(ent_tag) == len(s)
                 joint_data["ent_tags"].append(ent_tag)
-                joint_data["ent_labels"].append(self.re_data["ent_labels"][i])
-                joint_data["e1_indices"].append(self.re_data["e1_indices"][i])
-                joint_data["e2_indices"].append(self.re_data["e2_indices"][i])
-                joint_data["sents"].append(self.re_data["sents"][i])
-                joint_data["rel_labels"].append(self.re_data["rel_labels"][i])
-        print("***data_type:{} omit/total: {}/{}".format(data_type, omit_count, len(joint_data["ent_tags"])))
+                joint_data["ent_labels"].append(re_data["ent_labels"][i])
+                joint_data["e1_indices"].append(re_data["e1_indices"][i])
+                joint_data["e2_indices"].append(re_data["e2_indices"][i])
+                joint_data["sents"].append(re_data["sents"][i])
+                joint_data["rel_labels"].append(re_data["rel_labels"][i])
+        print("***data_type:{} omit/total: {}/{}".format(data_type, omit_count, len(joint_data["sents"])))
         return joint_data
 
-    def batch_iter(self, data, batch_size, re_type="numpy", _shuffle=True):
+    def batch_iter(self, data, batch_size, re_type="numpy", _shuffle=True, sequence_len=None):
         """
         :param data:  dict
         :param re_type: numpy, torch
@@ -200,10 +198,12 @@ class DataHelper(object):
 
             # batch size
             batch_size = len(batch_idxs)
-
-            # compute length of longest sentence in batch
-            batch_max_len = max([len(s) for s in sents])
-            max_len = min(batch_max_len, Config.max_len)
+            if sequence_len is None:
+                # compute length of longest sentence in batch
+                batch_max_len = max([len(s) for s in sents])
+                max_len = min(batch_max_len, Config.max_len)
+            else:
+                max_len = sequence_len
 
             # prepare a numpy array with the data, initialising the data with pad_idx
             batch_sents = np.zeros((batch_size, max_len))
@@ -232,8 +232,7 @@ class DataHelper(object):
                     batch_e2_masks[j][e2_indices[j]] = 1
                 else:
                     print("Exception: e2_indices[{}] is empty".format(j))
-                fake_label = self.get_fake_rel_label(rel_labels[j])
-                batch_fake_labels[j] = fake_label
+                batch_fake_labels[j] = self.get_fake_rel_label(rel_labels[j])
             batch_ent_labels = ent_labels
             batch_rel_labels = rel_labels
             if re_type == "torch":
@@ -257,14 +256,16 @@ class DataHelper(object):
 
     def get_samples(self, data_type):
         """
-        :param data_type: traib,val,test
+        :param data_type: train,val,test
         :param task:  ner,re,joint
         :return:
         """
         data = self.get_joint_data(data_type=data_type)
         sample_datas = {'ent_labels': [], 'e1_masks': [], 'e2_masks': [],
-                        'sents': [], 'ent_tags': [], 'fake_labels': [], "rel_labels": []}
-        for _data in self.batch_iter(data, batch_size=1000):
-            for key, v in _data.items():
-                sample_datas[key].extend(v)
+                        'sents': [], 'ent_tags': [], 'fake_rel_labels': [], "rel_labels": []}
+        for batch_data in self.batch_iter(data, batch_size=1000, re_type="numpy", sequence_len=Config.max_len):
+            for key, v in batch_data.items():
+                sample_datas[key].extend(list(v))
+        for k, v in sample_datas.items():
+            sample_datas[k] = np.asarray(v)
         return sample_datas

@@ -5,35 +5,35 @@ from nere.utils.gpu_selector import get_available_gpu
 from nere.utils.logger import logging_config
 
 
-def train_ner():
-    model_name = "BERTCRF"
-    from nere.ner.torchs.trainer import Trainer
-    Trainer(model_name=model_name).run()
-
-
-def train_re():
-    model_name = "BERTMultitask"
-    from nere.re.torchs.trainer import Trainer
-    Trainer(model_name=model_name).run()
-
-
-def train_joint():
+def torch_train():
+    task = "ner"
+    logging_config("torch_{}.log".format(task))
     ner_model = "BERTCRF"
     re_model = "BERTMultitask"
-    from nere.joint.trainer import Trainer
-    Trainer(ner_model, re_model).run()
+    if task == "ner":
+        from nere.torch_trainer import Trainer
+        Trainer(model_name=ner_model, task=task).run()
+    elif task == "re":
+        from nere.torch_trainer import Trainer
+        Trainer(model_name=re_model, task=task).run()
+    elif task == "joint":
+        # from nere.joint.trainer import Trainer
+        from nere.torch_trainer import JoinTrainer
+        JoinTrainer(ner_model, re_model).run()
 
 
-def evaluate():
-    model_name = "BERTCRF"
-    pass
+def keras_train(model_name=None):
+    task = "ner"
+    logging_config("keras_{}.log".format(task))
+    ner_model = "bilstm"
+    re_model = "bilstm"
+    if task == "ner":
+        from nere.ner.keras.train import train
+        train(model_name=ner_model)
 
 
 def main():
-    # train_ner()
-    # evaluate()
-    # train_re()
-    train_joint()
+    torch_train()
 
 
 if __name__ == '__main__':

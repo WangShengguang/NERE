@@ -2,14 +2,15 @@ import gc
 import logging
 import os
 
-import keras
-import keras_metrics
 import matplotlib.pyplot as plt
+from keras.callbacks import ReduceLROnPlateau, EarlyStopping, ModelCheckpoint
+from keras.losses import categorical_crossentropy
 from keras.models import load_model
+from keras.utils.np_utils import to_categorical
 
-from nere.re.data_helper import DataHelper
-from .models import get_bi_lstm
-from .config import Config
+from nere.config import Config
+from nere.data_helper import DataHelper
+from nere.ner.keras.models import get_bi_lstm
 
 models_func = {"bilstm": get_bi_lstm,
 
@@ -19,6 +20,8 @@ models_func = {"bilstm": get_bi_lstm,
 def train(model_name):
     logging.info("***keras train start, model_name : {}".format(model_name))
     data_helper = DataHelper()
+    embedding_dim = 128
+    num_classes = len(data_helper.ent_tag2id)
     model_path = os.path.join(Config.keras_ckpt_dir, "{}.hdf5".format(model_name))
     if os.path.exists(model_path):
         # 载入预训练model
@@ -28,34 +31,46 @@ def train(model_name):
         assert model_name in models_func, "{} is not exist ".format(model_name)
         get_model = models_func[model_name]
         model = get_model(vocab_size=len(data_helper.tokenizer.vocab),
-                          max_sequence_len=Config.max_len,
-                          embedding_dim=Config.embedding_dim,
-                          num_classes=Config.max_len,
+                          embedding_dim=embedding_dim,
+                          num_classes=num_classes,
                           embedding_matrix=None)
         model.compile(
-            loss=keras.losses.binary_crossentropy,  # 'binary_crossentropy',categorical_crossentropy
             optimizer='adam',
-            metrics=['accuracy'],
-            # metrics=['accuracy', keras_metrics.precision(), keras_metrics.recall()],
+            loss=categorical_crossentropy, metrics=["accuracy"],
         )
         model.summary()
 
-    x_train, y_train = data_helper.get_samples(data_type="train", sample_type="ner")
-    x_valid, y_valid = data_helper.get_samples(data_type="val", sample_type="ner")
+    # multilabel_binarizer = MultiLabelBinarizer()
+    # multilabel_binarizer.fit([list(data_helper.ent_tag2id.values())])
+
+    train_data = data_helper.get_samples(data_type="train")
+    x_train = train_data["sents"]
+    y_train = to_categorical(train_data["ent_tags"], num_classes=num_classes)
+    # time_distributed_1 to have 3 dimensions
+    valid_data = data_helper.get_samples(data_type="val")
+    x_valid = valid_data["sents"]
+    y_valid = to_categorical(valid_data["ent_tags"], num_classes=num_classes)
 
     del data_helper
     gc.collect()
+    callbacks = [
+        ReduceLROnPlateau(),
+        EarlyStopping(patience=4),
+        ModelCheckpoint(filepath=model_path, save_best_only=True)
+    ]
+    class_weight = None
     history = model.fit(x=x_train,
                         y=y_train,
-                        batch_size=8,
-                        epochs=10,
+                        class_weight=class_weight,
+                        batch_size=Config.batch_size,
+                        epochs=Config.max_epoch_nums,
                         verbose=1,
                         validation_data=(x_valid, y_valid),
+                        callbacks=callbacks
                         )
-
-    model.save(model_path)
+    # model.save(model_path)
     # plot_history(history)
-    logging.info("save model : {}".format(model_path))
+    logging.info("Done. save model : {}".format(model_path))
 
 
 def plot_history(history):

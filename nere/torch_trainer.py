@@ -4,7 +4,7 @@ from pathlib import Path
 
 import torch
 from tqdm import trange
-
+import traceback
 from nere.config import Config
 from nere.data_helper import DataHelper
 from nere.evaluator import Evaluator
@@ -143,8 +143,8 @@ class JoinTrainer(Trainer):
         return model
 
     def evaluate(self):
-        metrics = self.evaluator.test(task=self.task)
-        logging.info("*NER acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(*metrics["NER"]))
+        metrics = self.evaluator.test(model=self.model, task=self.task)
+        logging.info("* NER acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(*metrics["NER"]))
         logging.info("* RE acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(*metrics["RE"]))
         ner_f1 = metrics["NER"][-1]
         re_f1 = metrics["RE"][-1]
@@ -178,21 +178,24 @@ class JoinTrainer(Trainer):
 
     def run(self):
         self.model = self.get_model()
-
         train_data = self.data_helper.get_joint_data(data_type="train")
         for epoch_num in trange(Config.max_epoch_nums):
             for batch_data in self.data_helper.batch_iter(train_data, batch_size=Config.batch_size, re_type="torch"):
-                loss = self.train_step(batch_data)
-                logging.info("* epoch_num:{} global_step:{} loss: {:.4f}".format(
-                    epoch_num, self.global_step, loss.item()))
+                try:
+                    loss = self.train_step(batch_data)
+                except:
+                    logging.error(traceback.format_exc())
+                    continue
+                logging.info("* global_step:{} loss: {:.4f}".format(self.global_step, loss.item()))
                 self.backfoward(loss)
                 self.global_step += 1
                 self.scheduler.step(epoch=epoch_num)  # 更新学习率
                 if self.global_step % Config.save_step == 0:
                     self.evaluate()
             self.evaluate()
+            logging.info("epoch_num: {}".format(epoch_num))
             # Early stopping and logging best f1
             if (self.patience_counter >= Config.patience_num and epoch_num > Config.min_epoch_nums) \
                     or epoch_num == Config.max_epoch_nums:
-                logging.info("{}-{}, Best val f1: {:05.2f}".format(self.task, self.model_name, self.best_val_f1))
+                logging.info("{}-{}, Best val f1: {}".format(self.task, self.model_name, self.best_val_f1_dict))
                 break
