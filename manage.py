@@ -21,13 +21,13 @@ def torch_train(task, model_name=None):
         JoinTrainer(ner_model, re_model).run()
 
 
-def keras_train(task, model_name=None):
+def keras_run(task, model_name=None):
     logging_config("keras_{}.log".format(task))
     ner_model = "bilstm"
     re_model = "bilstm"
     if task == "ner":
-        from nere.ner.keras.train import train
-        train(model_name=ner_model)
+        from nere.keras_trainer import Trainer
+        Trainer(model_name=ner_model, task="ner", mode="train").run()
 
 
 def main():
@@ -51,12 +51,12 @@ def main():
     args = parser.parse_args()
     available_gpu = get_available_gpu(num_gpu=1, allow_gpus=args.allow_gpus)  # default 0,1,2,3
     os.environ["CUDA_VISIBLE_DEVICES"] = available_gpu
-    print("* use GPU: {} ".format(available_gpu))  # config前不可logging，否则config失效
+    print("* using GPU: {} ".format(available_gpu))  # config前不可logging，否则config失效
     #
     if args.torch:
         torch_train(args.torch)
     elif args.keras:
-        keras_train(args.keras)
+        keras_run(args.keras)
 
 
 if __name__ == '__main__':

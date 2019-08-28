@@ -1,3 +1,7 @@
+import os
+
+import keras
+import numpy as np
 from sklearn.metrics import accuracy_score
 
 from nere.config import Config
@@ -5,36 +9,86 @@ from nere.data_helper import DataHelper, entity_label2tag
 from nere.metrics import MutilabelMetrics
 
 
-class Evaluator(object):
-    def __init__(self):
+class Predictor(object):
+    def __init__(self, framework):
+        self.framework = framework
+        self.model = None
         self.data_helper = DataHelper()
+
+    def load_model(self, task, model_name):
+        if self.framework == "keras":
+            model_path = os.path.join(Config.keras_ckpt_dir, task, model_name)
+            assert os.path.isfile(model_path)
+            model = keras.models.load_model(model_path)
+        elif self.framework == "tf":
+            model = None
+        else:
+            raise ValueError(self.framework)
+        return model
+
+    def predict_ner(self, batch_data):
+        if self.framework == "torch":
+            batch_pred_ids = self.model(batch_data["sents"])
+        elif self.framework == "keras":
+            batch_logits = self.model.predict(batch_data["sents"])
+            batch_pred_ids = np.argmax(batch_logits, axis=-1)
+        elif self.framework == "tf":
+            batch_pred_ids = None
+        else:
+            raise ValueError(self.framework)
+        return batch_pred_ids
+
+    def predict_re(self, batch_data):
+        if self.framework == "torch":
+            batch_pred_ids = self.model(batch_data)
+        elif self.framework == "keras":
+            batch_pred_ids = self.model.predict()
+        elif self.framework == "tf":
+            batch_pred_ids = None
+        else:
+            raise ValueError(self.framework)
+        return batch_pred_ids
+
+    def cellect_entities(self, batch_tags):
+        """
+        :param tags:  # shape: (batch_size, seq_length),
+                    [["O","B-NP","I-NP"],["O","B-NP","I-NP"]]
+        :return:  (batch_size,entity_nums)
+        """
+        entities_indices = [get_entities(line_tags) for line_tags in batch_tags]
+        entities = [[entity for entity, start, end in line_entities] for line_entities in entities_indices]
+        return entities
+
+
+class Evaluator(Predictor):
+    def __init__(self, framework):
+        super().__init__(framework)
         self.val_data = self.data_helper.get_joint_data("val")
         # self.ner_metrics = MutilabelMetrics(list(self.data_helper.ent_tag2id.keys()))
         self.ner_metrics = MutilabelMetrics(list(entity_label2tag.values()))
         self.re_metrics = MutilabelMetrics(list(self.data_helper.rel_label2id.keys()))
 
-    def load_model(self, model_path=""):
-        pass
-
     def test(self, task, model=None):
-        if model is None:
-            model = self.load_model(task)
+        if isinstance(model, str):
+            model = self.load_model(task, model)
+        self.model = model
         if task == "ner":
-            res = self.test_ner(model)  # acc, precision, recall, f1
+            res = self.test_ner()  # acc, precision, recall, f1
         elif task == "re":
-            res = self.test_re(model)
+            res = self.test_re()
         elif task == "joint":
-            res = self.test_joint(model)
+            res = self.test_joint()
         else:
             raise ValueError(task)
         return res
 
-    def test_joint(self, model):
+    def test_joint(self):
         ner_pred_tags, ner_true_tags = [], []
         re_pred_tags, re_true_tags = [], []
-        for batch_data in self.data_helper.batch_iter(self.val_data, batch_size=Config.batch_size, re_type="torch"):
+        re_type = "torch" if self.framework == "torch" else "numpy"
+        for batch_data in self.data_helper.batch_iter(self.val_data, batch_size=Config.batch_size, re_type=re_type):
             # with torch.no_grad():  # 适用于测试阶段，不需要反向传播
-            ner_logits, re_logits = model(batch_data, is_train=False)  # shape: (batch_size, seq_length)
+            ner_logits, re_logits = self.model(batch_data, is_train=False)  # shape: (batch_size, seq_length)
             ner_pred_tags.extend(ner_logits.tolist())
             ner_true_tags.extend(batch_data["ent_tags"].tolist())
             re_pred_tags.extend(re_logits.tolist())
@@ -45,26 +99,24 @@ class Evaluator(object):
         metrics["RE"] = self.re_metrics.get_metrics_1d(re_true_tags, re_pred_tags)
         return metrics
 
-    def test_ner(self, model=None):
-        if model is None:
-            model = self.load_model("ner")
+    def test_ner(self):
         pred_tags = []
         true_tags = []
-        for batch_data in self.data_helper.batch_iter(self.val_data, batch_size=Config.batch_size, re_type="torch"):
-            batch_pred_ids = model(batch_data)  # shape: (batch_size, 1)
+        re_type = "torch" if self.framework == "torch" else "numpy"
+        for batch_data in self.data_helper.batch_iter(self.val_data, batch_size=Config.batch_size, re_type=re_type):
+            batch_pred_ids = self.predict_ner(batch_data)  # shape: (batch_size, 1)
             pred_tags.extend(batch_pred_ids.tolist())
             true_tags.extend(batch_data["ent_tags"].tolist())
         assert len(pred_tags) == len(true_tags)
         acc, precision, recall, f1 = self.evaluate_ner(true_tags, pred_tags)
         return acc, precision, recall, f1
 
-    def test_re(self, model=None):
-        if model is None:
-            model = self.load_model("re")
+    def test_re(self):
         pred_tags = []
         true_tags = []
-        for batch_data in self.data_helper.batch_iter(self.val_data, batch_size=Config.batch_size, re_type="torch"):
-            batch_pred_ids = model(batch_data)  # shape: (batch_size, 1)
+        re_type = "torch" if self.framework == "torch" else "numpy"
+        for batch_data in self.data_helper.batch_iter(self.val_data, batch_size=Config.batch_size, re_type=re_type):
+            batch_pred_ids = self.predict_re(batch_data)  # shape: (batch_size, 1)
             pred_tags.extend(batch_pred_ids.tolist())
             true_tags.extend(batch_data["rel_labels"].tolist())
         assert len(pred_tags) == len(true_tags)
@@ -81,15 +133,6 @@ class Evaluator(object):
         pred_entities = self.cellect_entities(_pred_tags)
         precision, recall, f1 = self.ner_metrics.get_metrics(true_entities, pred_entities)
         return acc, precision, recall, f1
-
-    def cellect_entities(self, tags):
-        """
-        :param tags:  # shape: (batch_size, seq_length)
-        :return:  (batch_size,entity_nums)
-        """
-        entities_indices = [get_entities(line_tags) for line_tags in tags]
-        entities = [[entity for entity, start, end in line_entities] for line_entities in entities_indices]
-        return entities
 
 
 def get_entities(seq, suffix=False):

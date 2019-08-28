@@ -1,10 +1,11 @@
 import logging
 import os
+import traceback
 from pathlib import Path
 
 import torch
 from tqdm import trange
-import traceback
+
 from nere.config import Config
 from nere.data_helper import DataHelper
 from nere.evaluator import Evaluator
@@ -14,15 +15,16 @@ from nere.re.torch_models import BERTMultitask as REBERTMultitask, BERTSoftmax a
 
 
 class Trainer(BaseTrainer):
-    def __init__(self, model_name, task):
+    def __init__(self, model_name, task, mode="train"):
         super().__init__()
         self.model_name = model_name
         self.task = task
+        self.mode = mode  # train evaluate
         self.model_dir = os.path.join(Config.torch_ckpt_dir, task)
         self.model_path = os.path.join(self.model_dir, model_name + ".bin")
         os.makedirs(self.model_dir, exist_ok=True)
         # evaluate
-        self.evaluator = Evaluator()
+        self.evaluator = Evaluator(framework="torch")
         self.best_val_f1 = 0
         self.patience_counter = Config.patience_num
         #
@@ -80,28 +82,32 @@ class Trainer(BaseTrainer):
 
     def train_step(self, batch_data):
         if self.task == "ner":
-            print("*****", batch_data["sents"].shape, batch_data["ent_tags"].shape)
             loss = self.model(input_ids=batch_data["sents"], attention_mask=batch_data["sents"].gt(0),
                               labels=batch_data["ent_tags"])
         elif self.task == "re":
             loss = self.model(batch_data, batch_data["rel_labels"])
+        else:
+            raise ValueError(self.task)
         return loss
 
     def run(self):
         self.model = self.get_model()
+        if self.mode == "evaluate":
+            self.evaluate()
+            return
         logging.info("{}-{} start train , epoch_nums:{}...".format(self.task, self.model_name, Config.max_epoch_nums))
         train_data = self.data_helper.get_joint_data(data_type="train")
         for epoch_num in trange(Config.max_epoch_nums):
             for batch_data in self.data_helper.batch_iter(train_data, batch_size=Config.batch_size, re_type="torch"):
                 loss = self.train_step(batch_data)
-                logging.info("* epoch_num:{} global_step:{} loss: {:.4f}".format(
-                    epoch_num, self.global_step, loss.item()))
+                logging.info("* global_step:{} loss: {:.4f}".format(self.global_step, loss.item()))
                 self.backfoward(loss)
                 self.global_step += 1
                 self.scheduler.step(epoch=epoch_num)  # 更新学习率
                 if self.global_step % Config.save_step == 0:
                     self.evaluate()
             self.evaluate()
+            logging.info("epoch_num: {} end .".format(epoch_num))
             # Early stopping and logging best f1
             if (self.patience_counter >= Config.patience_num and epoch_num > Config.min_epoch_nums) \
                     or epoch_num == Config.max_epoch_nums:
@@ -113,10 +119,11 @@ from nere.joint_models import nnJointNerRe
 
 
 class JoinTrainer(Trainer):
-    def __init__(self, ner_model, re_model):
-        super().__init__("", task="joint")
+    def __init__(self, ner_model, re_model, mode="train"):
+        super().__init__(model_name="", task="joint")
         self.ner_model = ner_model
         self.re_model = re_model
+        self.mode = mode
         self.ner_path = os.path.join(self.model_dir, "joint_ner_{}.bin".format(self.ner_model))
         self.re_path = os.path.join(self.model_dir, "joint_re_{}.bin".format(self.re_model))
         self.joint_path = os.path.join(self.model_dir, "joint{}{}.bin".format(self.ner_model, self.re_model))
@@ -178,6 +185,9 @@ class JoinTrainer(Trainer):
 
     def run(self):
         self.model = self.get_model()
+        if self.mode == "evaluate":
+            self.evaluate()
+            return
         train_data = self.data_helper.get_joint_data(data_type="train")
         for epoch_num in trange(Config.max_epoch_nums):
             for batch_data in self.data_helper.batch_iter(train_data, batch_size=Config.batch_size, re_type="torch"):
@@ -193,7 +203,7 @@ class JoinTrainer(Trainer):
                 if self.global_step % Config.save_step == 0:
                     self.evaluate()
             self.evaluate()
-            logging.info("epoch_num: {}".format(epoch_num))
+            logging.info("epoch_num: {} end .".format(epoch_num))
             # Early stopping and logging best f1
             if (self.patience_counter >= Config.patience_num and epoch_num > Config.min_epoch_nums) \
                     or epoch_num == Config.max_epoch_nums:

@@ -42,7 +42,7 @@ class TorchConfig(object):
 
 class TrainConfig(object):
     # sample data
-    max_len = 512
+    max_len = 400
     batch_size = 16
     # train params
     learning_rate = 1e-5
