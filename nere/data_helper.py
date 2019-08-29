@@ -74,6 +74,7 @@ class DataHelper(object):
         """
         assert data_type in ['train', 'val', 'test'], "data type not in ['train', 'val', 'test']"
         ent_labels, e1_indices, e2_indices, sentences, rel_labels = [], [], [], [], []  # Convert to corresponding ids
+        pos1, pos2 = [], []
         with open(os.path.join(Config.re_data_dir, "{}.txt".format(data_type)), "r", encoding="utf-8") as f:
             for line in f:
                 splits = line.strip().split('\t')
@@ -90,6 +91,8 @@ class DataHelper(object):
                 e1_indices.append(e1_match)
                 e2_match = self.find_sub_list(sent_tokens, e2_tokens)
                 e2_indices.append(e2_match)
+                pos1.append([pos_encode(i - e1_match[0]) for i in range(len(sent_tokens))])
+                pos2.append([pos_encode(i - e2_match[0]) for i in range(len(sent_tokens))])
                 if not e1_match:
                     logging.info("Exception: {}\t{}\t{}\n".format(e1, e1_tokens, sent_text))
                 if not e2_match:
@@ -101,6 +104,8 @@ class DataHelper(object):
         data['ent_labels'] = ent_labels
         data['e1_indices'] = e1_indices
         data['e2_indices'] = e2_indices
+        data['pos1'] = pos1
+        data['pos2'] = pos2
         data['sents'] = sentences
         data['rel_labels'] = rel_labels
         return data
@@ -159,7 +164,7 @@ class DataHelper(object):
             self.sentences_hash2ent_tags = self.get_sentences_ent_tags()
         re_data = self.get_re_data(data_type)
         joint_data = {'ent_labels': [], 'e1_indices': [], 'e2_indices': [], 'sents': [], 'rel_labels': [],
-                      'ent_tags': []}
+                      'ent_tags': [], "pos1": [], "pos2": []}
         for i, s in enumerate(re_data["sents"]):
             try:
                 ent_tag = self.sentences_hash2ent_tags[hash(tuple(s))]
@@ -172,6 +177,8 @@ class DataHelper(object):
                 joint_data["ent_labels"].append(re_data["ent_labels"][i])
                 joint_data["e1_indices"].append(re_data["e1_indices"][i])
                 joint_data["e2_indices"].append(re_data["e2_indices"][i])
+                joint_data["pos1"].append(re_data["pos1"][i])
+                joint_data["pos2"].append(re_data["pos2"][i])
                 joint_data["sents"].append(re_data["sents"][i])
                 joint_data["rel_labels"].append(re_data["rel_labels"][i])
         print("***data_type:{} omit/total: {}/{}".format(data_type, omit_count, len(joint_data["sents"])))
@@ -192,6 +199,8 @@ class DataHelper(object):
             ent_labels = [data['ent_labels'][idx] for idx in batch_idxs]
             e1_indices = [data['e1_indices'][idx] for idx in batch_idxs]
             e2_indices = [data['e2_indices'][idx] for idx in batch_idxs]
+            pos1 = [data['pos1'][idx] for idx in batch_idxs]
+            pos2 = [data['pos2'][idx] for idx in batch_idxs]
             sents = [data['sents'][idx] for idx in batch_idxs]
             rel_labels = [data['rel_labels'][idx] for idx in batch_idxs]
             ent_tags = [data['ent_tags'][idx] for idx in batch_idxs]
@@ -201,12 +210,14 @@ class DataHelper(object):
             if sequence_len is None:
                 # compute length of longest sentence in batch
                 batch_max_len = max([len(s) for s in sents])
-                max_len = min(batch_max_len, Config.max_len)
+                max_len = min(batch_max_len, Config.max_sequence_len)
             else:
                 max_len = sequence_len
 
             # prepare a numpy array with the data, initialising the data with pad_idx
             batch_sents = np.zeros((batch_size, max_len))
+            batch_pos1 = np.ones((batch_size, max_len)) * (Config.max_sequence_len - 1)
+            batch_pos2 = np.ones((batch_size, max_len)) * (Config.max_sequence_len - 1)
             batch_ent_tags = self.ent_tag2id["O"] * np.ones((batch_size, max_len))
             batch_e1_masks = np.zeros((batch_size, max_len))
             batch_e2_masks = np.zeros((batch_size, max_len))
@@ -220,9 +231,13 @@ class DataHelper(object):
                 if cur_len <= max_len:
                     batch_sents[j][:cur_len] = sents[j]
                     batch_ent_tags[j][:cur_len] = ent_tags[j]
+                    batch_pos1[j][:cur_len] = pos1[j]
+                    batch_pos2[j][:cur_len] = pos2[j]
                 else:
                     batch_sents[j] = sents[j][:max_len]
                     batch_ent_tags[j] = ent_tags[j][:max_len]
+                    batch_pos1[j] = pos1[j][:max_len]
+                    batch_pos2[j] = pos2[j][:max_len]
                 if e1_indices[j]:
                     batch_e1_masks[j][e1_indices[j]] = 1
                 else:
@@ -240,6 +255,8 @@ class DataHelper(object):
                 batch_ent_labels = torch.tensor(batch_ent_labels, dtype=torch.long).to(Config.device)
                 batch_e1_masks = torch.tensor(batch_e1_masks, dtype=torch.long).to(Config.device)
                 batch_e2_masks = torch.tensor(batch_e2_masks, dtype=torch.long).to(Config.device)
+                batch_pos1 = torch.tensor(batch_pos1, dtype=torch.long).to(Config.device)
+                batch_pos2 = torch.tensor(batch_pos2, dtype=torch.long).to(Config.device)
                 batch_sents = torch.tensor(batch_sents, dtype=torch.long).to(Config.device)
                 batch_ent_tags = torch.tensor(batch_ent_tags, dtype=torch.long).to(Config.device)
                 batch_fake_labels = torch.tensor(batch_fake_labels, dtype=torch.long).to(Config.device)
@@ -248,6 +265,8 @@ class DataHelper(object):
             batch_data = {'ent_labels': batch_ent_labels,
                           'e1_masks': batch_e1_masks,
                           'e2_masks': batch_e2_masks,
+                          'pos1': batch_pos1,
+                          'pos2': batch_pos2,
                           'sents': batch_sents,
                           'ent_tags': batch_ent_tags,
                           'fake_rel_labels': batch_fake_labels,
@@ -263,9 +282,25 @@ class DataHelper(object):
         data = self.get_joint_data(data_type=data_type)
         sample_datas = {'ent_labels': [], 'e1_masks': [], 'e2_masks': [],
                         'sents': [], 'ent_tags': [], 'fake_rel_labels': [], "rel_labels": []}
-        for batch_data in self.batch_iter(data, batch_size=1000, re_type="numpy", sequence_len=Config.max_len):
+        for batch_data in self.batch_iter(data, batch_size=1000, re_type="numpy", sequence_len=Config.max_sequence_len):
             for key, v in batch_data.items():
                 sample_datas[key].extend(list(v))
         for k, v in sample_datas.items():
             sample_datas[k] = np.asarray(v)
         return sample_datas
+
+
+def pos_encode(relative_position):
+    """
+    :param relative_position: 当前单词相对于实体的位置
+    :return:
+    """
+    pos_size = Config.max_sequence_len
+    semi_size = pos_size // 2
+    if relative_position < -semi_size:
+        pos_code = 0
+    elif -semi_size <= relative_position < semi_size:
+        pos_code = relative_position + semi_size
+    else:  # if relative_position > semi_size:
+        pos_code = pos_size - 1
+    return pos_code

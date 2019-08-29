@@ -6,12 +6,15 @@ from nere.utils.logger import logging_config
 
 def torch_run(mode="train"):
     task = "ner"
+    task = "re"
+    # task = "joint"
     ner_model = "BERTCRF"
     re_model = "BERTMultitask"
     if task == "ner":
         from nere.torch_trainer import Trainer
         Trainer(model_name=ner_model, task=task, mode=mode).run()
     elif task == "re":
+        re_model = "bilstm_att"
         from nere.torch_trainer import Trainer
         Trainer(model_name=re_model, task=task, mode=mode).run()
     elif task == "joint":
@@ -22,17 +25,24 @@ def torch_run(mode="train"):
 
 def keras_run():
     task = "ner"
-    ner_model = "bilstm"
-    re_model = "bilstm"
+    task = "re"
     if task == "ner":
+        ner_model = "bilstm"
+        ner_model = "bilstm_crf"
         from nere.keras_trainer import Trainer
-        Trainer(model_name=ner_model, task="ner", mode="evaluate").run()
+        Trainer(model_name=ner_model, task="ner", mode="train").run()
+        # Trainer(model_name=ner_model, task="ner", mode="evaluate").run()
+    elif task == "re":
+        re_model = "bilstm"
+        from nere.keras_trainer import Trainer
+        Trainer(model_name=re_model, task="re", mode="train").run()
 
 
 def main():
-    # torch_run(mode="train")
+    torch_run(mode="train")
     # torch_run(mode="evaluate")
-    keras_run()
+    # keras_run()
+
 
 if __name__ == '__main__':
     logging_config("dev.log", stream_log=True)

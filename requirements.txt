@@ -1,6 +1,7 @@
 tensorflow
 keras
 keras-transformer
+keras-contrib
 tensor2tensor
 sklearn
 torch

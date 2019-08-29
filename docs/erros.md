@@ -10,7 +10,12 @@
         > - soved
     - [RuntimeError: CUDA error: device-side assert triggered]()
 
+    - [RuntimeError: cublas runtime error](https://blog.csdn.net/h2oco2ch4/article/details/87897762)
+        > - soved
 
 
+- keras
+    - [TypeError: Tensors in list passed to 'values' of 'ConcatV2' Op have types [bool, float32] that don't all match.]()    
+        Embedding(vocab_size, embedding_dim,mask_zero=False)
 
 

@@ -61,9 +61,9 @@ class Predictor(object):
 
 
 class Evaluator(Predictor):
-    def __init__(self, framework):
+    def __init__(self, framework, data_type="val"):
         super().__init__(framework)
-        self.val_data = self.data_helper.get_joint_data("val")
+        self.test_data = self.data_helper.get_joint_data(data_type)
         # self.ner_metrics = MutilabelMetrics(list(self.data_helper.ent_tag2id.keys()))
         self.ner_metrics = MutilabelMetrics(list(entity_label2tag.values()))
         self.re_metrics = MutilabelMetrics(list(self.data_helper.rel_label2id.keys()))
@@ -86,7 +86,7 @@ class Evaluator(Predictor):
         ner_pred_tags, ner_true_tags = [], []
         re_pred_tags, re_true_tags = [], []
         re_type = "torch" if self.framework == "torch" else "numpy"
-        for batch_data in self.data_helper.batch_iter(self.val_data, batch_size=Config.batch_size, re_type=re_type):
+        for batch_data in self.data_helper.batch_iter(self.test_data, batch_size=Config.batch_size, re_type=re_type):
             # with torch.no_grad():  # 适用于测试阶段，不需要反向传播
             ner_logits, re_logits = self.model(batch_data, is_train=False)  # shape: (batch_size, seq_length)
             ner_pred_tags.extend(ner_logits.tolist())
@@ -103,7 +103,7 @@ class Evaluator(Predictor):
         pred_tags = []
         true_tags = []
         re_type = "torch" if self.framework == "torch" else "numpy"
-        for batch_data in self.data_helper.batch_iter(self.val_data, batch_size=Config.batch_size, re_type=re_type):
+        for batch_data in self.data_helper.batch_iter(self.test_data, batch_size=Config.batch_size, re_type=re_type):
             batch_pred_ids = self.predict_ner(batch_data)  # shape: (batch_size, 1)
             pred_tags.extend(batch_pred_ids.tolist())
             true_tags.extend(batch_data["ent_tags"].tolist())
@@ -115,7 +115,7 @@ class Evaluator(Predictor):
         pred_tags = []
         true_tags = []
         re_type = "torch" if self.framework == "torch" else "numpy"
-        for batch_data in self.data_helper.batch_iter(self.val_data, batch_size=Config.batch_size, re_type=re_type):
+        for batch_data in self.data_helper.batch_iter(self.test_data, batch_size=Config.batch_size, re_type=re_type):
             batch_pred_ids = self.predict_re(batch_data)  # shape: (batch_size, 1)
             pred_tags.extend(batch_pred_ids.tolist())
             true_tags.extend(batch_data["rel_labels"].tolist())
@@ -231,5 +231,4 @@ def start_of_chunk(prev_tag, tag, prev_type, type_):
 
     if tag != 'O' and tag != '.' and prev_type != type_:
         chunk_start = True
-
     return chunk_start

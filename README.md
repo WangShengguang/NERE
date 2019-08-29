@@ -13,7 +13,7 @@ Named Entity Recognition &amp; Relation Extraction
 |BiLSTM|0.9852|0.9895|0.9662|0.9741|
 
 
-### 关系抽取
+### 关系识别
 |模型|accuracy|precision|recall|f1|
 |---|---|---|---|---|
 |BERTMultitask|0.9623|0.9536|0.9446|0.9488|
@@ -39,4 +39,10 @@ Named Entity Recognition &amp; Relation Extraction
 - [Build a POS tagger with an LSTM using Keras](https://nlpforhackers.io/lstm-pos-tagger-keras/)
 
 
+
+https://github.com/buppt/ChineseNRE/blob/master/BiLSTM_ATT.py
+
+- [awesome-relation-extraction](https://github.com/roomylee/awesome-relation-extraction)
+
+- [理论](http://nlpprogress.com/english/relationship_extraction.html)
 

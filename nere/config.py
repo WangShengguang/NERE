@@ -34,17 +34,13 @@ class DataConfig(object):
     # sample generate
 
 
-class TorchConfig(object):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    gpu_nums = torch.cuda.device_count()
-    multi_gpu = False
-
-
 class TrainConfig(object):
     # sample data
-    max_len = 400
+    max_sequence_len = 400
     batch_size = 16
     # train params
+    ent_emb_dim = 128
+    rel_emb_dim = 768
     learning_rate = 1e-5
     weight_decay = 0.01
     clip_grad = 2
@@ -59,13 +55,20 @@ class TrainConfig(object):
     save_step = 200
 
 
+class EvaluateConfig(object):
+    load_model_mode = "max_step"
+
+
 class BertConfig(object):
     gradient_accumulation_steps = 1
     full_finetuning = True
 
 
-class EvaluateConfig(object):
-    load_model_mode = "max_step"
+class TorchConfig(object):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # device = "cpu"
+    gpu_nums = torch.cuda.device_count()
+    multi_gpu = False
 
 
 class Config(DataConfig, TorchConfig, BertConfig, TrainConfig, EvaluateConfig):

@@ -9,9 +9,7 @@ from tqdm import trange
 from nere.config import Config
 from nere.data_helper import DataHelper
 from nere.evaluator import Evaluator
-from nere.model_urils.torch_utils import Trainer as BaseTrainer
-from nere.ner.torch_models import BERTCRF as NERBERTCRF, BERTSoftmax as NERBERTSoftmax
-from nere.re.torch_models import BERTMultitask as REBERTMultitask, BERTSoftmax as REBERTSoftmax
+from nere.model_utils.torch_utils import Trainer as BaseTrainer
 
 
 class Trainer(BaseTrainer):
@@ -24,29 +22,34 @@ class Trainer(BaseTrainer):
         self.model_path = os.path.join(self.model_dir, model_name + ".bin")
         os.makedirs(self.model_dir, exist_ok=True)
         # evaluate
-        self.evaluator = Evaluator(framework="torch")
+        self.evaluator = Evaluator(framework="torch", data_type="val")
         self.best_val_f1 = 0
         self.patience_counter = Config.patience_num
         #
         self.data_helper = DataHelper()
 
     def get_re_model(self):
+        from nere.re.torch_models import BERTMultitask, BERTSoftmax, BiLSTM_ATT
+        vocab_size = len(self.data_helper.tokenizer.vocab)
+        num_ent_tags = len(self.data_helper.ent_tag2id)
+        num_rel_tags = len(self.data_helper.rel_label2id)
         if self.model_name == 'BERTSoftmax':
-            model = REBERTSoftmax.from_pretrained(Config.bert_pretrained_dir,
-                                                  num_labels=len(self.data_helper.rel_label2id))
+            model = BERTSoftmax.from_pretrained(Config.bert_pretrained_dir, num_labels=num_rel_tags)
         elif self.model_name == 'BERTMultitask':
-            model = REBERTMultitask.from_pretrained(Config.bert_pretrained_dir,
-                                                    num_labels=len(self.data_helper.rel_label2id))
+            model = BERTMultitask.from_pretrained(Config.bert_pretrained_dir, num_labels=num_rel_tags)
+        elif self.model_name == "bilstm_att":
+            model = BiLSTM_ATT(vocab_size, num_ent_tags, num_rel_tags)
         else:
             raise ValueError("Unknown model, must be one of 'BERTSoftmax'/'BERTMultitask'")
         return model
 
     def get_ner_model(self):
+        from nere.ner.torch_models import BERTCRF, BERTSoftmax
         num_tags = len(self.data_helper.ent_tag2id)
         if self.model_name == 'BERTCRF':
-            model = NERBERTCRF.from_pretrained(Config.bert_pretrained_dir, num_labels=num_tags)
+            model = BERTCRF.from_pretrained(Config.bert_pretrained_dir, num_labels=num_tags)
         elif self.model_name == 'BERTSoftmax':
-            model = NERBERTSoftmax.from_pretrained(Config.bert_pretrained_dir, num_labels=num_tags)
+            model = BERTSoftmax.from_pretrained(Config.bert_pretrained_dir, num_labels=num_tags)
         else:
             raise ValueError("Unknown model, must be one of 'BERTSoftmax'/'BERTMultitask'")
         return model
@@ -93,7 +96,10 @@ class Trainer(BaseTrainer):
     def run(self):
         self.model = self.get_model()
         if self.mode == "evaluate":
-            self.evaluate()
+            acc, precision, recall, f1 = Evaluator(framework="torch", data_type="test").test(model=self.model,
+                                                                                             task=self.task)
+            logging.info("acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
+                acc, precision, recall, f1))
             return
         logging.info("{}-{} start train , epoch_nums:{}...".format(self.task, self.model_name, Config.max_epoch_nums))
         train_data = self.data_helper.get_joint_data(data_type="train")
@@ -186,7 +192,9 @@ class JoinTrainer(Trainer):
     def run(self):
         self.model = self.get_model()
         if self.mode == "evaluate":
-            self.evaluate()
+            metrics = Evaluator(framework="torch", data_type="test").test(model=self.model, task=self.task)
+            logging.info("* NER acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(*metrics["NER"]))
+            logging.info("* RE acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(*metrics["RE"]))
             return
         train_data = self.data_helper.get_joint_data(data_type="train")
         for epoch_num in trange(Config.max_epoch_nums):

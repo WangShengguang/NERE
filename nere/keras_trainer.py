@@ -4,14 +4,12 @@ import os
 
 import matplotlib.pyplot as plt
 from keras.callbacks import ReduceLROnPlateau, EarlyStopping, ModelCheckpoint
-from keras.losses import categorical_crossentropy
 from keras.models import load_model
 from keras.utils.np_utils import to_categorical
 
 from nere.config import Config
 from nere.data_helper import DataHelper
 from nere.evaluator import Evaluator
-from nere.ner.keras_models import get_bi_lstm
 
 
 class Trainer(object):
@@ -31,15 +29,18 @@ class Trainer(object):
 
     def get_data(self):
         train_data = self.data_helper.get_samples(data_type="train")
+        valid_data = self.data_helper.get_samples(data_type="val")
         if self.task == "ner":
-            x_train = train_data["sents"]
-            y_train = to_categorical(train_data["ent_tags"], num_classes=self.num_classes)
-            # time_distributed_1 to have 3 dimensions
-            valid_data = self.data_helper.get_samples(data_type="val")
-            x_valid = valid_data["sents"]
-            y_valid = to_categorical(valid_data["ent_tags"], num_classes=self.num_classes)
+            x_train, y_train = train_data["sents"], train_data["ent_tags"]
+            x_valid, y_valid = valid_data["sents"], valid_data["ent_tags"]
+            # if self.model_name == "bilstm":  # time_distributed_1 to have 3 dimensions
+            y_train = to_categorical(y_train, num_classes=self.num_classes)
+            y_valid = to_categorical(y_valid, num_classes=self.num_classes)
         elif self.task == "re":
-            pass
+            x_train = train_data["sents"], train_data["ent_tags"]
+            y_train = train_data["re_labels"]
+            x_valid = valid_data["sents"], valid_data["ent_tags"]
+            y_valid = valid_data["re_labels"]
         else:
             raise ValueError(self.task)
         del self.data_helper
@@ -47,33 +48,31 @@ class Trainer(object):
         return (x_train, y_train), (x_valid, y_valid)
 
     def get_model(self):
+        vocab_size = len(self.data_helper.tokenizer.vocab)
+        num_ent_tags = len(self.data_helper.ent_tag2id)
+        num_rel_tags = len(self.data_helper.rel_label2id)
         if Config.load_pretrain and os.path.isfile(self.model_path):
             # 载入预训练model
             model = load_model(self.model_path, custom_objects={})
             logging.info("\n*** keras load model :{}".format(self.model_path))
-        elif self.model_name == "bilstm":
-            get_model = get_bi_lstm
-            embedding_dim = 128
-            model = get_model(vocab_size=len(self.data_helper.tokenizer.vocab),
-                              embedding_dim=embedding_dim,
-                              num_classes=self.num_classes,
-                              embedding_matrix=None)
-            model.compile(
-                optimizer='adam',
-                loss=categorical_crossentropy, metrics=["accuracy"]
-            )
-            model.summary()
+        elif self.task == "ner":
+            from nere.ner.keras_models import get_bilstm, get_bilstm_crf
+            get_model = {"bilstm": get_bilstm, "bilstm_crf": get_bilstm_crf}[self.model_name]
+            model = get_model(vocab_size=vocab_size, num_classes=self.num_classes)
+        elif self.task == "re":
+            from nere.re.keras_models import get_bilstm, get_bilstm_crf
+            get_model = {"bilstm": get_bilstm, "bilstm_crf": get_bilstm_crf}[self.model_name]
+            model = get_model(vocab_size=vocab_size, num_ent_tags=num_ent_tags, num_rel_tags=num_rel_tags)
         else:
             raise ValueError(self.model_name)
+        model.summary()
         return model
 
     def run(self):
         model = self.get_model()
         if self.mode == "evaluate":
-            acc, precision, recall, f1 = Evaluator(framework="keras").test(task="ner", model=model)
+            acc, precision, recall, f1 = Evaluator(framework="keras", data_type="test").test(task="ner", model=model)
             logging.info("acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
-                acc, precision, recall, f1))
-            print("acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
                 acc, precision, recall, f1))
             return
         logging.info("***keras train start, model_name : {}".format(self.model_name))
