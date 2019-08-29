@@ -216,8 +216,8 @@ class DataHelper(object):
 
             # prepare a numpy array with the data, initialising the data with pad_idx
             batch_sents = np.zeros((batch_size, max_len))
-            batch_pos1 = np.ones((batch_size, max_len)) * (Config.max_sequence_len - 1)
-            batch_pos2 = np.ones((batch_size, max_len)) * (Config.max_sequence_len - 1)
+            batch_pos1 = np.zeros((batch_size, max_len)) * (Config.max_sequence_len - 100)
+            batch_pos2 = np.zeros((batch_size, max_len)) * (Config.max_sequence_len - 100)
             batch_ent_tags = self.ent_tag2id["O"] * np.ones((batch_size, max_len))
             batch_e1_masks = np.zeros((batch_size, max_len))
             batch_e2_masks = np.zeros((batch_size, max_len))
@@ -295,7 +295,7 @@ def pos_encode(relative_position):
     :param relative_position: 当前单词相对于实体的位置
     :return:
     """
-    pos_size = Config.max_sequence_len
+    pos_size = Config.max_sequence_len - 100
     semi_size = pos_size // 2
     if relative_position < -semi_size:
         pos_code = 0

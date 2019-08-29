@@ -73,8 +73,8 @@ class Trainer(BaseTrainer):
         logging.info("acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
             acc, precision, recall, f1))
         if f1 > self.best_val_f1:
-            re_path = torch.save(self.model.state_dict(), self.model_path)
-            logging.info("** - Found new best F1 ,save to model_path: {}".format(re_path))
+            torch.save(self.model.state_dict(), self.model_path)
+            logging.info("** - Found new best F1 ,save to model_path: {}".format(self.model_path))
             if f1 - self.best_val_f1 < Config.patience:
                 self.patience_counter += 1
             else:
@@ -178,12 +178,12 @@ class JoinTrainer(Trainer):
             self.best_val_f1_dict["NER"] = ner_f1
             torch.save(self.model.ner.state_dict(), self.ner_path)  # Only save the model it-self
             logging.info("** - Found new best NER F1: {:.4f} ,save to model_path: {}".format(
-                ner_f1, self.joint_path))
+                ner_f1, self.ner_path))
         if re_f1 > self.best_val_f1_dict["RE"]:
             self.best_val_f1_dict["RE"] = re_f1
             torch.save(self.model.re.state_dict(), self.re_path)  # Only save the model it-self
             logging.info("** - Found new best RE F1:{:.4f} ,save to model_path: {}".format(
-                re_f1, self.joint_path))
+                re_f1, self.re_path))
 
     def train_step(self, batch_data):
         loss = self.model(batch_data, is_train=True)
