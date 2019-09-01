@@ -47,7 +47,7 @@ class TrainConfig(object):
     # early stop
     max_epoch_nums = 20
     min_epoch_nums = 5
-    patience = 0.02
+    patience = 0.01
     patience_num = 3
     # model save & load
     load_pretrain = True  # 断点续训
@@ -69,6 +69,17 @@ class TorchConfig(object):
     # device = "cpu"
     gpu_nums = torch.cuda.device_count()
     multi_gpu = False
+
+
+class TfConfig(object):
+    """
+        TF_CPP_MIN_LOG_LEVEL 取值 0 ： 0也是默认值，输出所有信息
+        TF_CPP_MIN_LOG_LEVEL 取值 1 ： 屏蔽通知信息
+        TF_CPP_MIN_LOG_LEVEL 取值 2 ： 屏蔽通知信息和警告信息
+        TF_CPP_MIN_LOG_LEVEL 取值 3 ： 屏蔽通知信息、警告信息和报错信息
+    """
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
+
 
 
 class Config(DataConfig, TorchConfig, BertConfig, TrainConfig, EvaluateConfig):

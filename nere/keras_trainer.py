@@ -72,8 +72,10 @@ class Trainer(object):
         model = self.get_model()
         if self.mode == "evaluate":
             acc, precision, recall, f1 = Evaluator(framework="keras", data_type="test").test(task="ner", model=model)
-            logging.info("acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
-                acc, precision, recall, f1))
+            _test_log = "acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
+                acc, precision, recall, f1)
+            logging.info(_test_log)
+            print(_test_log)
             return
         logging.info("***keras train start, model_name : {}".format(self.model_name))
         (x_train, y_train), (x_valid, y_valid) = self.get_data()

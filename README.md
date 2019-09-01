@@ -25,6 +25,11 @@ Named Entity Recognition &amp; Relation Extraction
 |BERTCRF+BERTMultitask|NER|0.9909|0.9726|0.9899|0.9782|
 |BERTCRF+BERTMultitask|RE|0.9669|0.9513|0.9424|0.9460|
 
+
+ test acc: 0.9930, precision: 0.9898, recall: 0.9781, f1: 0.9821
+ test acc: 0.9349, precision: 0.9082, recall: 0.9104, f1: 0.9085
+ NER acc: 0.9903, precision: 0.9817, recall: 0.9746, f1: 0.9754
+ RE acc: 0.9388, precision: 0.9273, recall: 0.8958, f1: 0.9082
  
 
 

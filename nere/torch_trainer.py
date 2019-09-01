@@ -63,7 +63,7 @@ class Trainer(BaseTrainer):
             raise ValueError(self.task)
         if Config.load_pretrain and Path(self.model_path).is_file():
             model.load_state_dict(torch.load(self.model_path))  # 断点续训
-            logging.info("load model from {}".format(self.model_path))
+            logging.info("* load model from {}".format(self.model_path))
         self.init_model(model)
         return model
 
@@ -95,15 +95,17 @@ class Trainer(BaseTrainer):
 
     def run(self):
         self.model = self.get_model()
-        if self.mode == "evaluate":
+        if self.mode == "test":
             acc, precision, recall, f1 = Evaluator(framework="torch", data_type="test").test(model=self.model,
                                                                                              task=self.task)
-            logging.info("acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
-                acc, precision, recall, f1))
+            _test_log = "* test acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
+                acc, precision, recall, f1)
+            logging.info(_test_log)
+            print(_test_log)
             return
         logging.info("{}-{} start train , epoch_nums:{}...".format(self.task, self.model_name, Config.max_epoch_nums))
         train_data = self.data_helper.get_joint_data(data_type="train")
-        for epoch_num in trange(Config.max_epoch_nums):
+        for epoch_num in trange(Config.max_epoch_nums, desc="train epoch num"):
             for batch_data in self.data_helper.batch_iter(train_data, batch_size=Config.batch_size, re_type="torch"):
                 loss = self.train_step(batch_data)
                 logging.info("* global_step:{} loss: {:.4f}".format(self.global_step, loss.item()))
@@ -125,8 +127,8 @@ from nere.joint_models import nnJointNerRe
 
 
 class JoinTrainer(Trainer):
-    def __init__(self, ner_model, re_model, mode="train"):
-        super().__init__(model_name="", task="joint")
+    def __init__(self, task, ner_model, re_model, mode="train"):
+        super().__init__(model_name="joint" + ner_model + re_model, task=task)
         self.ner_model = ner_model
         self.re_model = re_model
         self.mode = mode
@@ -144,14 +146,16 @@ class JoinTrainer(Trainer):
         #                                    num_ner_labels=num_ner_tags, num_re_labels=num_re_tags)
         model = nnJointNerRe(ner_model=self.ner_model, re_model=self.re_model,
                              num_ner_labels=num_ner_tags, num_re_labels=num_re_tags)
-        # if Config.load_pretrain and Path(self.joint_path).is_file():
-        #     model.load_state_dict(torch.load(self.joint_path))  # 断点续训
-        #     logging.info("load model from {}".format(self.joint_path))
+        if self.task == "joint":
+            if Config.load_pretrain and Path(self.joint_path).is_file():
+                model.load_state_dict(torch.load(self.joint_path))  # 断点续训
+                logging.info("load model from {}".format(self.joint_path))
         # 分别load
-        if Config.load_pretrain and Path(self.ner_path).is_file():
-            model.ner.load_state_dict(torch.load(self.ner_path))  # 断点续训
-            model.re.load_state_dict(torch.load(self.re_path))  # 断点续训
-            logging.info("load model from ner_path:{}, re_path:{}".format(self.ner_path, self.re_path))
+        else:  # respective
+            if Config.load_pretrain and Path(self.ner_path).is_file():
+                model.ner.load_state_dict(torch.load(self.ner_path))  # 断点续训
+                model.re.load_state_dict(torch.load(self.re_path))  # 断点续训
+                logging.info("load model from ner_path:{}, re_path:{}".format(self.ner_path, self.re_path))
         self.init_model(model)
         return model
 
@@ -191,13 +195,17 @@ class JoinTrainer(Trainer):
 
     def run(self):
         self.model = self.get_model()
-        if self.mode == "evaluate":
+        if self.mode == "test":
             metrics = Evaluator(framework="torch", data_type="test").test(model=self.model, task=self.task)
-            logging.info("* NER acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(*metrics["NER"]))
-            logging.info("* RE acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(*metrics["RE"]))
+            _ner_log = "* NER acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(*metrics["NER"])
+            _re_log = "* RE acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(*metrics["RE"])
+            logging.info(_ner_log)
+            logging.info(_re_log)
+            print(_ner_log)
+            print(_re_log)
             return
         train_data = self.data_helper.get_joint_data(data_type="train")
-        for epoch_num in trange(Config.max_epoch_nums):
+        for epoch_num in trange(Config.max_epoch_nums, desc="train epoch num"):
             for batch_data in self.data_helper.batch_iter(train_data, batch_size=Config.batch_size, re_type="torch"):
                 try:
                     loss = self.train_step(batch_data)
