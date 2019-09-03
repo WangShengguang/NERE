@@ -61,25 +61,31 @@ class Predictor(object):
 
 
 class Evaluator(Predictor):
-    def __init__(self, framework, data_type="val"):
+    def __init__(self, framework, task, data_type="val"):
+        """
+        :param framework: torch,tf,keras
+        :param task: ner,re,joint
+        :param data_type: train,val,test
+        """
         super().__init__(framework)
-        self.test_data = self.data_helper.get_joint_data(data_type)
+        self.task = task
+        self.test_data = self.data_helper.get_joint_data(task=task, data_type=data_type)
         # self.ner_metrics = MutilabelMetrics(list(self.data_helper.ent_tag2id.keys()))
         self.ner_metrics = MutilabelMetrics(list(entity_label2tag.values()))
         self.re_metrics = MutilabelMetrics(list(self.data_helper.rel_label2id.keys()))
 
-    def test(self, task, model=None):
+    def test(self, model=None):
         if isinstance(model, str):
-            model = self.load_model(task, model)
+            model = self.load_model(self.task, model)
         self.model = model
-        if task == "ner":
+        if self.task == "ner":
             res = self.test_ner()  # acc, precision, recall, f1
-        elif task == "re":
+        elif self.task == "re":
             res = self.test_re()
-        elif task == "joint":
+        elif self.task == "joint":
             res = self.test_joint()
         else:
-            raise ValueError(task)
+            raise ValueError(self.task)
         return res
 
     def test_joint(self):

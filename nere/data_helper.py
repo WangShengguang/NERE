@@ -158,21 +158,26 @@ class DataHelper(object):
                 sentence2ent_tags[hash(tuple(s))] = tag
         return sentence2ent_tags
 
-    def get_joint_data(self, data_type, task="joint"):
+    def get_joint_data(self, task, data_type):
         omit_count = 0
         if self.sentences_hash2ent_tags is None:
             self.sentences_hash2ent_tags = self.get_sentences_ent_tags()
         re_data = self.get_re_data(data_type)
         joint_data = {'ent_labels': [], 'e1_indices': [], 'e2_indices': [], 'sents': [], 'rel_labels': [],
                       'ent_tags': [], "pos1": [], "pos2": []}
+        unique_sents_hashs = set()
         for i, s in enumerate(re_data["sents"]):
+            sent_hash = hash(tuple(s))
+            if task == "ner" and sent_hash in unique_sents_hashs:  # ner 保证任务数据集单一
+                continue
             try:
-                ent_tag = self.sentences_hash2ent_tags[hash(tuple(s))]
+                ent_tag = self.sentences_hash2ent_tags[sent_hash]
             except:
                 # print(self.tokenizer.convert_ids_to_tokens(s), "\n\n")
                 omit_count += 1
             else:  # "no error"
                 assert len(ent_tag) == len(s)
+                unique_sents_hashs.add(sent_hash)
                 joint_data["ent_tags"].append(ent_tag)
                 joint_data["ent_labels"].append(re_data["ent_labels"][i])
                 joint_data["e1_indices"].append(re_data["e1_indices"][i])

@@ -4,12 +4,63 @@ import traceback
 from pathlib import Path
 
 import torch
+import torch.nn as nn
+from torch.optim import Adam
+from torch.optim.lr_scheduler import LambdaLR
 from tqdm import trange
 
 from nere.config import Config
 from nere.data_helper import DataHelper
 from nere.evaluator import Evaluator
-from nere.model_utils.torch_utils import Trainer as BaseTrainer
+from nere.re.torch_models import ACNN
+
+
+class BaseTrainer(object):
+    def __init__(self):
+        self.global_step = 0
+
+    def init_model(self, model):
+        model.to(Config.device)  # without this there is no error, but it runs in CPU (instead of GPU).
+        if Config.gpu_nums > 1 and Config.multi_gpu:
+            model = torch.nn.DataParallel(model)
+
+        if Config.full_finetuning:
+            pass  # TODO 参考源代码含义
+        param_optimizer = list(model.named_parameters())
+        self.no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
+        self.exclude_params = ['cls.predictions.bias', 'cls.predictions.transform.dense.weight',
+                               'cls.predictions.transform.dense.bias',
+                               'cls.predictions.transform.LayerNorm.weight',
+                               'cls.predictions.transform.LayerNorm.bias', 'cls.predictions.decoder.weight',
+                               'cls.seq_relationship.weight', 'cls.seq_relationship.bias']
+
+        optimizer_grouped_parameters = [
+            {'params': [p for n, p in param_optimizer if
+                        not any(nd in n for nd in self.no_decay) and n not in self.exclude_params],
+             'weight_decay_rate': 0.01},
+            {'params': [p for n, p in param_optimizer if
+                        any(nd in n for nd in self.no_decay) and n not in self.exclude_params],
+             'weight_decay_rate': 0.0}
+        ]
+        self.optimizer = Adam(optimizer_grouped_parameters, lr=Config.learning_rate)
+        self.scheduler = LambdaLR(self.optimizer, lr_lambda=lambda epoch: 1 / (1 + 0.05 * epoch))
+
+    def backfoward(self, loss):
+        if Config.gpu_nums > 1 and Config.multi_gpu:
+            loss = loss.mean()  # mean() to average on multi-gpu
+        if Config.gradient_accumulation_steps > 1:
+            loss = loss / Config.gradient_accumulation_steps
+        # compute gradients of all variables wrt loss
+        loss.backward()
+
+        if self.global_step % Config.gradient_accumulation_steps == 0:
+            # gradient clipping
+            nn.utils.clip_grad_norm_(parameters=self.model.parameters(), max_norm=Config.clip_grad)
+            # performs updates using calculated gradients
+            self.optimizer.step()
+            # clear previous gradients
+            self.optimizer.zero_grad()
+        return loss
 
 
 class Trainer(BaseTrainer):
@@ -22,7 +73,7 @@ class Trainer(BaseTrainer):
         self.model_path = os.path.join(self.model_dir, model_name + ".bin")
         os.makedirs(self.model_dir, exist_ok=True)
         # evaluate
-        self.evaluator = Evaluator(framework="torch", data_type="val")
+        self.evaluator = Evaluator(framework="torch", task=task, data_type="val")
         self.best_val_f1 = 0
         self.patience_counter = Config.patience_num
         #
@@ -39,6 +90,9 @@ class Trainer(BaseTrainer):
             model = BERTMultitask.from_pretrained(Config.bert_pretrained_dir, num_labels=num_rel_tags)
         elif self.model_name == "bilstm_att":
             model = BiLSTM_ATT(vocab_size, num_ent_tags, num_rel_tags)
+        elif self.model_name == "ACNN":
+            model = ACNN(vocab_size, num_ent_tags, num_rel_tags, Config.ent_emb_dim,
+                         Config.max_sequence_len)
         else:
             raise ValueError("Unknown model, must be one of 'BERTSoftmax'/'BERTMultitask'")
         return model
@@ -69,7 +123,7 @@ class Trainer(BaseTrainer):
 
     def evaluate(self):
         # with torch.no_grad():  # 适用于测试阶段，不需要反向传播
-        acc, precision, recall, f1 = self.evaluator.test(model=self.model, task=self.task)
+        acc, precision, recall, f1 = self.evaluator.test(model=self.model)
         logging.info("acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
             acc, precision, recall, f1))
         if f1 > self.best_val_f1:
@@ -96,15 +150,15 @@ class Trainer(BaseTrainer):
     def run(self):
         self.model = self.get_model()
         if self.mode == "test":
-            acc, precision, recall, f1 = Evaluator(framework="torch", data_type="test").test(model=self.model,
-                                                                                             task=self.task)
+            acc, precision, recall, f1 = Evaluator(framework="torch", task=self.task, data_type="test").test(
+                model=self.model)
             _test_log = "* test acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
                 acc, precision, recall, f1)
             logging.info(_test_log)
             print(_test_log)
             return
         logging.info("{}-{} start train , epoch_nums:{}...".format(self.task, self.model_name, Config.max_epoch_nums))
-        train_data = self.data_helper.get_joint_data(data_type="train")
+        train_data = self.data_helper.get_joint_data(task=self.task, data_type="train")
         for epoch_num in trange(Config.max_epoch_nums, desc="train epoch num"):
             for batch_data in self.data_helper.batch_iter(train_data, batch_size=Config.batch_size, re_type="torch"):
                 loss = self.train_step(batch_data)
@@ -160,7 +214,7 @@ class JoinTrainer(Trainer):
         return model
 
     def evaluate(self):
-        metrics = self.evaluator.test(model=self.model, task=self.task)
+        metrics = self.evaluator.test(model=self.model)
         logging.info("* NER acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(*metrics["NER"]))
         logging.info("* RE acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(*metrics["RE"]))
         ner_f1 = metrics["NER"][-1]
@@ -196,7 +250,7 @@ class JoinTrainer(Trainer):
     def run(self):
         self.model = self.get_model()
         if self.mode == "test":
-            metrics = Evaluator(framework="torch", data_type="test").test(model=self.model, task=self.task)
+            metrics = Evaluator(framework="torch", task=self.task, data_type="test").test(model=self.model)
             _ner_log = "* NER acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(*metrics["NER"])
             _re_log = "* RE acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(*metrics["RE"])
             logging.info(_ner_log)
@@ -204,7 +258,7 @@ class JoinTrainer(Trainer):
             print(_ner_log)
             print(_re_log)
             return
-        train_data = self.data_helper.get_joint_data(data_type="train")
+        train_data = self.data_helper.get_joint_data(task=self.task, data_type="train")
         for epoch_num in trange(Config.max_epoch_nums, desc="train epoch num"):
             for batch_data in self.data_helper.batch_iter(train_data, batch_size=Config.batch_size, re_type="torch"):
                 try:

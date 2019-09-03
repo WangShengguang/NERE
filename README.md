@@ -28,11 +28,20 @@ Named Entity Recognition &amp; Relation Extraction
 
  test acc: 0.9930, precision: 0.9898, recall: 0.9781, f1: 0.9821
  test acc: 0.9349, precision: 0.9082, recall: 0.9104, f1: 0.9085
- NER acc: 0.9903, precision: 0.9817, recall: 0.9746, f1: 0.9754
- RE acc: 0.9388, precision: 0.9273, recall: 0.8958, f1: 0.9082
- 
+
+re * test acc: 0.9349, precision: 0.9082, recall: 0.9104, f1: 0.9085
 
 
+
+
+* NER acc: 0.9901, precision: 0.9841, recall: 0.9800, f1: 0.9797
+* RE acc: 0.9371, precision: 0.9162, recall: 0.9213, f1: 0.9184
+5 loss2
+
+
+* NER acc: 0.9918, precision: 0.9764, recall: 0.9830, f1: 0.9768
+* RE acc: 0.9423, precision: 0.9333, recall: 0.9165, f1: 0.9226
+10 loss2
 
 
 
@@ -51,3 +60,7 @@ https://github.com/buppt/ChineseNRE/blob/master/BiLSTM_ATT.py
 
 - [理论](http://nlpprogress.com/english/relationship_extraction.html)
 
+
+- [ABCNN](https://github.com/lsrock1/abcnn_pytorch/blob/master/abcnn.py)
+
+- [ACNN](https://github.com/lawlietAi/pytorch-acnn-model)

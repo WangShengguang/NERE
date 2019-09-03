@@ -6,7 +6,7 @@ from nere.utils.logger import logging_config
 
 
 def torch_run(task, model_name, mode):
-    logging_config("torch_{}.log".format(task))
+    logging_config("{}_{}_{}_torch.log".format(mode, task, model_name))
     if task == "ner":
         from nere.torch_trainer import Trainer
         Trainer(model_name=model_name, task=task, mode=mode).run()
@@ -32,7 +32,7 @@ def main():
                        choices=["BERTCRF", "BERTSoftmax"],  # model name
                        help="Named Entity Recognition，实体识别")
     group.add_argument('--re', type=str,
-                       choices=["BERTCRF", "BERTMultitask", "bilstm_att"],  # model name
+                       choices=["BERTCRF", "BERTMultitask", "bilstm_att", "ACNN"],  # model name
                        help="Relation Extraction，关系抽取")
     group.add_argument('--joint', type=str,
                        default="joint",
