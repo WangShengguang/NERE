@@ -28,8 +28,8 @@ class Trainer(object):
             self.num_classes = len(self.data_helper.rel_label2id)
 
     def get_data(self):
-        train_data = self.data_helper.get_samples(data_type="train")
-        valid_data = self.data_helper.get_samples(data_type="val")
+        train_data = self.data_helper.get_samples(task=self.task, data_type="train")
+        valid_data = self.data_helper.get_samples(task=self.task, data_type="val")
         if self.task == "ner":
             x_train, y_train = train_data["sents"], train_data["ent_tags"]
             x_valid, y_valid = valid_data["sents"], valid_data["ent_tags"]
@@ -59,10 +59,10 @@ class Trainer(object):
             from nere.ner.keras_models import get_bilstm, get_bilstm_crf
             get_model = {"bilstm": get_bilstm, "bilstm_crf": get_bilstm_crf}[self.model_name]
             model = get_model(vocab_size=vocab_size, num_classes=self.num_classes)
-        elif self.task == "re":
-            from nere.re.keras_models import get_bilstm, get_bilstm_crf
-            get_model = {"bilstm": get_bilstm, "bilstm_crf": get_bilstm_crf}[self.model_name]
-            model = get_model(vocab_size=vocab_size, num_ent_tags=num_ent_tags, num_rel_tags=num_rel_tags)
+        # elif self.task == "re":
+        #     from nere.re.keras_models import get_bilstm, get_bilstm_crf
+        #     get_model = {"bilstm": get_bilstm, "bilstm_crf": get_bilstm_crf}[self.model_name]
+        #     model = get_model(vocab_size=vocab_size, num_ent_tags=num_ent_tags, num_rel_tags=num_rel_tags)
         else:
             raise ValueError(self.model_name)
         model.summary()

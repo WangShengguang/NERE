@@ -5,7 +5,7 @@ from keras_contrib.layers import CRF
 
 from nere.config import Config
 
-embedding_dim = Config.ent_emb_dim,
+embedding_dim = Config.ent_emb_dim
 
 
 def get_bilstm(vocab_size, num_classes):

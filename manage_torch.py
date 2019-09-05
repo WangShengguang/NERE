@@ -6,7 +6,7 @@ from nere.utils.logger import logging_config
 
 
 def torch_run(task, model_name, mode):
-    logging_config("{}_{}_{}_torch.log".format(mode, task, model_name))
+    logging_config("joint_{}_{}_torch.log".format(model_name, mode))
     if task == "ner":
         from nere.torch_trainer import Trainer
         Trainer(model_name=model_name, task=task, mode=mode).run()
@@ -20,6 +20,36 @@ def torch_run(task, model_name, mode):
         JoinTrainer(task=task, ner_model=ner_model, re_model=re_model, mode=mode).run()
 
 
+def run_all(task):
+    import logging, traceback
+    if task == "ner":
+        logging_config("ner_all.log")
+        from nere.keras_trainer import Trainer
+        for model_name in ["bilstm", "bilstm_crf"]:
+            try:
+                Trainer(task="ner", model_name=model_name, mode="train").run()
+            except:
+                logging.info("keras model: {}".format(model_name))
+                logging.error(traceback.format_exc())
+        # keras
+        from nere.torch_trainer import Trainer
+        for model_name in ["BERTCRF", "BERTSoftmax", "BiLSTM_ATT"]:
+            try:
+                Trainer(model_name=model_name, task=task, mode="train").run()
+            except:
+                logging.info("torch model:{}".format(model_name))
+                logging.error(traceback.format_exc())
+    elif task == "re":
+        logging_config("re_all.log")
+        from nere.torch_trainer import Trainer
+        for model_name in ["BiLSTM_ATT", "ACNN", "BiLSTM", "BERTSoftmax", "BERTMultitask", ]:
+            try:
+                Trainer(model_name=model_name, task=task, mode="train").run()
+            except:
+                logging.info(model_name)
+                logging.error(traceback.format_exc())
+
+
 def main():
     ''' Parse command line arguments and execute the code
         --stream_log, --relative_path, --log_level
@@ -29,15 +59,15 @@ def main():
     group = parser.add_mutually_exclusive_group(required=True)  # 一组互斥参数,且至少需要互斥参数中的一个
     # 函数名参数
     group.add_argument('--ner', type=str,
-                       choices=["BERTCRF", "BERTSoftmax"],  # model name
+                       choices=["BERTCRF", "BERTSoftmax", "BiLSTM_ATT"],  # model name
                        help="Named Entity Recognition，实体识别")
     group.add_argument('--re', type=str,
-                       choices=["BERTCRF", "BERTMultitask", "bilstm_att", "ACNN"],  # model name
+                       choices=["BERTSoftmax", "BERTMultitask", "BiLSTM_ATT", "ACNN", "BiLSTM"],  # model name
                        help="Relation Extraction，关系抽取")
     group.add_argument('--joint', type=str,
-                       default="joint",
                        choices=["joint", "respective"],  # model name
                        help="联合训练，load pretrain 的模式")
+    group.add_argument('--all', type=str, choices=["ner", "re"])
     parser.add_argument('--mode', type=str,
                         choices=["train", "test"],
                         required=True,
@@ -54,6 +84,8 @@ def main():
         torch_run(task="re", model_name=args.re, mode=args.mode)
     elif args.joint:
         torch_run(task="joint", model_name=args.joint, mode=args.mode)
+    elif args.all:
+        run_all(task=args.all)
 
 
 if __name__ == '__main__':

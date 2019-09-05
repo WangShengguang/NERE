@@ -278,14 +278,14 @@ class DataHelper(object):
                           "rel_labels": batch_rel_labels}
             yield batch_data
 
-    def get_samples(self, data_type):
+    def get_samples(self, task, data_type):
         """
         :param data_type: train,val,test
         :param task:  ner,re,joint
         :return:
         """
-        data = self.get_joint_data(data_type=data_type)
-        sample_datas = {'ent_labels': [], 'e1_masks': [], 'e2_masks': [],
+        data = self.get_joint_data(task=task, data_type=data_type)
+        sample_datas = {'ent_labels': [], 'e1_masks': [], 'e2_masks': [], "pos1": [], "pos2": [],
                         'sents': [], 'ent_tags': [], 'fake_rel_labels': [], "rel_labels": []}
         for batch_data in self.batch_iter(data, batch_size=1000, re_type="numpy", sequence_len=Config.max_sequence_len):
             for key, v in batch_data.items():

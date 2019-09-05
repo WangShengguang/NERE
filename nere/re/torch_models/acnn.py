@@ -29,8 +29,6 @@ class ACNN(nn.Module):
         self.margin = 1.0
 
     def loss(self, wo_norm, all_distance, in_y):
-        # import ipdb
-        # ipdb.set_trace()
         y_one_hot = self.batch_y_zeros.scatter(1, in_y.reshape([-1, 1]), 1)
         masking_y = torch.mul(y_one_hot, 10000)
         neg_y = torch.argmin(torch.add(all_distance, masking_y), dim=1)  # bz,

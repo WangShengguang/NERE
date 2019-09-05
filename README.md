@@ -9,40 +9,27 @@ Named Entity Recognition &amp; Relation Extraction
 ### 实体识别
 |模型|accuracy|precision|recall|f1|
 |---|---|---|---|---|
-|BERTCRF|0.9928|0.9938|0.9804|0.9852|
+|BERTCRF|0.9965|0.9923|0.9811|0.9850|
 |BiLSTM|0.9852|0.9895|0.9662|0.9741|
 
 
 ### 关系识别
 |模型|accuracy|precision|recall|f1|
 |---|---|---|---|---|
-|BERTMultitask|0.9623|0.9536|0.9446|0.9488|
+|BERTMultitask|0.9349|0.9082|0.9104|0.9085|
 
 
 ### 联合训练 
-|模型|任务|accuracy|precision|recall|f1|
-|---|---|---|---|---|---|
-|BERTCRF+BERTMultitask|NER|0.9909|0.9726|0.9899|0.9782|
-|BERTCRF+BERTMultitask|RE|0.9669|0.9513|0.9424|0.9460|
+|模型|组合方式|任务|accuracy|precision|recall|f1|
+|---|---|---|---|---|---|---|
+|BERTCRF+BERTMultitask|ner_loss + 10 * re_loss|NER|0.9918|0.9764|0.9830|0.9768|
+|BERTCRF+BERTMultitask|ner_loss + 10 * re_loss|RE|0.9423|0.9333|0.9165|0.9226|
+|BERTCRF+BERTMultitask|ner_loss + 5 * re_loss|NER|0.9901|0.9841|0.9800|0.9797|
+|BERTCRF+BERTMultitask|ner_loss + 5 * re_loss|RE|0.9371|0.9162|0.9213|0.9184|
 
-
- test acc: 0.9930, precision: 0.9898, recall: 0.9781, f1: 0.9821
- test acc: 0.9349, precision: 0.9082, recall: 0.9104, f1: 0.9085
-
-re * test acc: 0.9349, precision: 0.9082, recall: 0.9104, f1: 0.9085
-
-
-
-
-* NER acc: 0.9901, precision: 0.9841, recall: 0.9800, f1: 0.9797
-* RE acc: 0.9371, precision: 0.9162, recall: 0.9213, f1: 0.9184
-5 loss2
-
-
-* NER acc: 0.9918, precision: 0.9764, recall: 0.9830, f1: 0.9768
-* RE acc: 0.9423, precision: 0.9333, recall: 0.9165, f1: 0.9226
-10 loss2
-
+1+1
+* NER acc: 0.9932, precision: 0.9791, recall: 0.9795, f1: 0.9768
+* RE acc: 0.9392, precision: 0.9230, recall: 0.9147, f1: 0.9177
 
 
 

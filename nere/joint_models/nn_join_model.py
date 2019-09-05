@@ -43,7 +43,7 @@ class JointNerRe(nn.Module):
                 ner_loss = self.ner(batch_data["sents"], token_type_ids=None,
                                     attention_mask=batch_masks, labels=batch_data["ent_tags"])
                 re_loss = self.re(batch_data, labels=batch_data["rel_labels"])
-                loss = ner_loss + 10 * re_loss
+                loss = ner_loss + re_loss
                 return loss
         else:  # eval
             if mode == "ner":

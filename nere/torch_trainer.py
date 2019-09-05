@@ -12,7 +12,6 @@ from tqdm import trange
 from nere.config import Config
 from nere.data_helper import DataHelper
 from nere.evaluator import Evaluator
-from nere.re.torch_models import ACNN
 
 
 class BaseTrainer(object):
@@ -80,7 +79,7 @@ class Trainer(BaseTrainer):
         self.data_helper = DataHelper()
 
     def get_re_model(self):
-        from nere.re.torch_models import BERTMultitask, BERTSoftmax, BiLSTM_ATT
+        from nere.re.torch_models import BERTMultitask, BERTSoftmax, BiLSTM_ATT, ACNN, BiLSTM
         vocab_size = len(self.data_helper.tokenizer.vocab)
         num_ent_tags = len(self.data_helper.ent_tag2id)
         num_rel_tags = len(self.data_helper.rel_label2id)
@@ -88,8 +87,10 @@ class Trainer(BaseTrainer):
             model = BERTSoftmax.from_pretrained(Config.bert_pretrained_dir, num_labels=num_rel_tags)
         elif self.model_name == 'BERTMultitask':
             model = BERTMultitask.from_pretrained(Config.bert_pretrained_dir, num_labels=num_rel_tags)
-        elif self.model_name == "bilstm_att":
+        elif self.model_name == "BiLSTM_ATT":
             model = BiLSTM_ATT(vocab_size, num_ent_tags, num_rel_tags)
+        elif self.model_name == "BiLSTM":
+            model = BiLSTM(vocab_size, num_ent_tags, num_rel_tags)
         elif self.model_name == "ACNN":
             model = ACNN(vocab_size, num_ent_tags, num_rel_tags, Config.ent_emb_dim,
                          Config.max_sequence_len)
@@ -98,12 +99,19 @@ class Trainer(BaseTrainer):
         return model
 
     def get_ner_model(self):
-        from nere.ner.torch_models import BERTCRF, BERTSoftmax
-        num_tags = len(self.data_helper.ent_tag2id)
+        from nere.ner.torch_models import BERTCRF, BERTSoftmax, BiLSTM_ATT
+
+        num_ent_tags = len(self.data_helper.ent_tag2id)
+        vocab_size = len(self.data_helper.tokenizer.vocab)
+
         if self.model_name == 'BERTCRF':
-            model = BERTCRF.from_pretrained(Config.bert_pretrained_dir, num_labels=num_tags)
+            model = BERTCRF.from_pretrained(Config.bert_pretrained_dir, num_labels=num_ent_tags)
         elif self.model_name == 'BERTSoftmax':
-            model = BERTSoftmax.from_pretrained(Config.bert_pretrained_dir, num_labels=num_tags)
+            model = BERTSoftmax.from_pretrained(Config.bert_pretrained_dir, num_labels=num_ent_tags)
+        # elif self.model_name == "CNN_ATT":
+        #     model = CNN_ATT(vocab_size, num_ent_tags)
+        elif self.model_name == "BiLSTM_ATT":
+            model = BiLSTM_ATT(vocab_size, num_ent_tags)
         else:
             raise ValueError("Unknown model, must be one of 'BERTSoftmax'/'BERTMultitask'")
         return model
@@ -152,8 +160,8 @@ class Trainer(BaseTrainer):
         if self.mode == "test":
             acc, precision, recall, f1 = Evaluator(framework="torch", task=self.task, data_type="test").test(
                 model=self.model)
-            _test_log = "* test acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
-                acc, precision, recall, f1)
+            _test_log = "* model:{}, test acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
+                self.model_name, acc, precision, recall, f1)
             logging.info(_test_log)
             print(_test_log)
             return
@@ -215,8 +223,10 @@ class JoinTrainer(Trainer):
 
     def evaluate(self):
         metrics = self.evaluator.test(model=self.model)
-        logging.info("* NER acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(*metrics["NER"]))
-        logging.info("* RE acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(*metrics["RE"]))
+        logging.info("*model:{}, NER acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
+            self.model_name, *metrics["NER"]))
+        logging.info("*model:{},  RE acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
+            self.model_name, *metrics["RE"]))
         ner_f1 = metrics["NER"][-1]
         re_f1 = metrics["RE"][-1]
         ave_f1 = (ner_f1 + re_f1) / 2
