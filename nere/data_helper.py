@@ -198,7 +198,7 @@ class DataHelper(object):
         # one pass over data
         data_size = len(data["sents"])
         order = list(range(data_size))
-        for batch_step in range(data_size // batch_size):
+        for batch_step in range(data_size // batch_size + 1):
             # fetch sentences and tags
             batch_idxs = order[batch_step * batch_size:(batch_step + 1) * batch_size]
             ent_labels = [data['ent_labels'][idx] for idx in batch_idxs]
