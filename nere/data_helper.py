@@ -201,6 +201,8 @@ class DataHelper(object):
         for batch_step in range(data_size // batch_size + 1):
             # fetch sentences and tags
             batch_idxs = order[batch_step * batch_size:(batch_step + 1) * batch_size]
+            if len(batch_idxs) != batch_size:  # batch size 不可过大
+                continue
             ent_labels = [data['ent_labels'][idx] for idx in batch_idxs]
             e1_indices = [data['e1_indices'][idx] for idx in batch_idxs]
             e2_indices = [data['e2_indices'][idx] for idx in batch_idxs]
@@ -211,7 +213,7 @@ class DataHelper(object):
             ent_tags = [data['ent_tags'][idx] for idx in batch_idxs]
 
             # batch size
-            batch_size = len(batch_idxs)
+            # batch_size = len(batch_idxs)
             if sequence_len is None:
                 # compute length of longest sentence in batch
                 batch_max_len = max([len(s) for s in sents])
@@ -287,7 +289,8 @@ class DataHelper(object):
         data = self.get_joint_data(task=task, data_type=data_type)
         sample_datas = {'ent_labels': [], 'e1_masks': [], 'e2_masks': [], "pos1": [], "pos2": [],
                         'sents': [], 'ent_tags': [], 'fake_rel_labels': [], "rel_labels": []}
-        for batch_data in self.batch_iter(data, batch_size=1000, re_type="numpy", sequence_len=Config.max_sequence_len):
+        for batch_data in self.batch_iter(data, batch_size=Config.batch_size, re_type="numpy",
+                                          sequence_len=Config.max_sequence_len):
             for key, v in batch_data.items():
                 sample_datas[key].extend(list(v))
         for k, v in sample_datas.items():

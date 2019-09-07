@@ -3,7 +3,7 @@ import time
 import traceback
 
 
-def get_available_gpu(num_gpu=1, min_memory=1000, try_times=3, allow_gpus="0", verbose=False):
+def get_available_gpu(num_gpu=1, min_memory=1000, try_times=3, allow_gpus="0,1,2,3", verbose=False):
     '''
     :param num_gpu: number of GPU you want to use
     :param min_memory: minimum memory MiB
@@ -12,6 +12,7 @@ def get_available_gpu(num_gpu=1, min_memory=1000, try_times=3, allow_gpus="0", v
     :param verbose: verbose mode
     :return: str of best choices, e.x. '1, 2'
     '''
+    selected = ""
     while try_times:
         try_times -= 1
         info_text = os.popen('nvidia-smi --query-gpu=utilization.gpu,memory.free --format=csv').read()
@@ -28,11 +29,12 @@ def get_available_gpu(num_gpu=1, min_memory=1000, try_times=3, allow_gpus="0", v
             if gpu_id in allow_gpus:
                 if memory >= min_memory:
                     avilable_gpu.append(gpu_id)
-        if not avilable_gpu:
+        if avilable_gpu:
+            selected = ",".join(avilable_gpu[:num_gpu])
+        else:
             print('No GPU available, will retry after 2.0 seconds ...')
             time.sleep(2)
             continue
-        selected = ",".join(avilable_gpu[:num_gpu])
         if verbose:
             print('Available GPU List')
             first_line = [['id', 'utilization.gpu(%)', 'memory.free(MiB)']]
@@ -43,4 +45,4 @@ def get_available_gpu(num_gpu=1, min_memory=1000, try_times=3, allow_gpus="0", v
             table = [fmt.format(*row) for row in s]
             print('\n'.join(table))
             print('Select id #' + selected + ' for you.')
-        return selected
+    return selected

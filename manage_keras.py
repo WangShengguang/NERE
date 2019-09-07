@@ -6,7 +6,7 @@ from nere.utils.logger import logging_config
 
 
 def keras_run(task, model_name, mode):
-    logging_config("keras_{}.log".format(task))
+    logging_config("{}_{}_{}_keras.log".format(task, model_name, mode))
     from nere.keras_trainer import Trainer
     Trainer(task="ner", model_name=model_name, mode=mode).run()
 
@@ -33,9 +33,13 @@ def main():
                         help="模型训练or测试")
     # parse args
     args = parser.parse_args()
-    available_gpu = get_available_gpu(num_gpu=1, allow_gpus=args.allow_gpus)  # default allow_gpus 0,1,2,3
-    os.environ["CUDA_VISIBLE_DEVICES"] = available_gpu
-    print("* using GPU: {} ".format(available_gpu))  # config前不可logging，否则config失效
+    if args.cpu_only:
+        os.environ["CUDA_VISIBLE_DEVICES"] = ""
+        print("CPU only ...")
+    else:
+        available_gpu = get_available_gpu(num_gpu=1, allow_gpus=args.allow_gpus)  # default allow_gpus 0,1,2,3
+        os.environ["CUDA_VISIBLE_DEVICES"] = available_gpu
+        print("* using GPU: {} ".format(available_gpu))  # config前不可logging，否则config失效
     #
     if args.ner:
         keras_run(task="ner", model_name=args.ner, mode=args.mode)
@@ -48,8 +52,8 @@ def main():
 if __name__ == '__main__':
     """ 代码执行入口
     examples:
-        python keras_manage.py  --ner BERTCRF --mode train  
-        python keras_manage.py  --ner BERTCRF --mode test  
+        python manage_keras.py  --ner BERTCRF --mode train  
+        python manage_keras.py  --ner BERTCRF --mode test  
     """
 
     main()

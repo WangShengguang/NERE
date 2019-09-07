@@ -71,8 +71,7 @@ class BiLSTM_ATT(nn.Module):
         e2_masks = batch_data['e2_masks']
         ent_labels = batch_data["ent_labels"]
         # self.hidden = self.init_hidden_lstm()
-        batch_size = sents.size(0)
-        ent_label_features = self.ent_label_embeddings(ent_labels).view(batch_size, -1)
+        ent_label_features = self.ent_label_embeddings(ent_labels).view(self.batch_size, -1)
 
         # embeds = torch.cat((self.word_embeds(sents), self.pos1_embeds(pos1), self.pos2_embeds(pos2)), 2)
         embeds = self.word_embeds(sents)
@@ -87,7 +86,7 @@ class BiLSTM_ATT(nn.Module):
         lstm_out = torch.transpose(lstm_out, 1, 2)
 
         lstm_out = self.dropout_lstm(lstm_out)
-        att_out = F.tanh(self.attention(lstm_out)).view(batch_size, -1)
+        att_out = F.tanh(self.attention(lstm_out)).view(self.batch_size, -1)
 
         all_features = torch.cat((ent_label_features, att_out, e1_features, e2_features), dim=1)
         all_features = self.dropout(all_features)

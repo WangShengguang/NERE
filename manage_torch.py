@@ -1,12 +1,12 @@
 import os
 
 from nere.utils.gpu_selector import get_available_gpu
-from nere.utils.hparams import Hparams
+from nere.utils.hparams import Hparams, set_process_name
 from nere.utils.logger import logging_config
 
 
 def torch_run(task, model_name, mode):
-    logging_config("joint_{}_{}_torch.log".format(model_name, mode))
+    logging_config("{}_{}_{}_torch.log".format(task,model_name, mode))
     if task == "ner":
         from nere.torch_trainer import Trainer
         Trainer(model_name=model_name, task=task, mode=mode).run()
@@ -53,7 +53,7 @@ def run_all(task):
 def main():
     ''' Parse command line arguments and execute the code
         --stream_log, --relative_path, --log_level
-        --allow_gpus
+        --allow_gpus, --cpu
     '''
     parser = Hparams().parser
     group = parser.add_mutually_exclusive_group(required=True)  # 一组互斥参数,且至少需要互斥参数中的一个
@@ -74,10 +74,14 @@ def main():
                         help="模型训练or测试")
     # parse args
     args = parser.parse_args()
-    available_gpu = get_available_gpu(num_gpu=1, allow_gpus=args.allow_gpus)  # default allow_gpus 0,1,2,3
-    os.environ["CUDA_VISIBLE_DEVICES"] = available_gpu
-    print("* using GPU: {} ".format(available_gpu))  # config前不可logging，否则config失效
-    #
+    if args.cpu_only:
+        os.environ["CUDA_VISIBLE_DEVICES"] = ""
+        print("CPU only ...")
+    else:
+        available_gpu = get_available_gpu(num_gpu=1, allow_gpus=args.allow_gpus)  # default allow_gpus 0,1,2,3
+        os.environ["CUDA_VISIBLE_DEVICES"] = available_gpu
+        print("* using GPU: {} ".format(available_gpu))  # config前不可logging，否则config失效
+    set_process_name(args.process_name)  # 设置进程名
     if args.ner:
         torch_run(task="ner", model_name=args.ner, mode=args.mode)
     elif args.re:
@@ -91,8 +95,9 @@ def main():
 if __name__ == '__main__':
     """ 代码执行入口
     examples:
-        python torch_manage.py  --ner BERTCRF --mode train  
-        python torch_manage.py  --ner BERTCRF --mode test  
+        python manage_torch.py  --ner BERTCRF --mode train  
+        python manage_torch.py  --joint respective --mode test  
+        nohup python manage_torch.py --joint respective --mode train --process_name J &
     """
 
     main()

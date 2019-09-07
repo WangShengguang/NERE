@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 from keras.callbacks import ReduceLROnPlateau, EarlyStopping, ModelCheckpoint
 from keras.models import load_model
 from keras.utils.np_utils import to_categorical
+from keras_contrib.layers import CRF
+from keras_contrib.losses import crf_loss
+from keras_contrib.metrics import crf_viterbi_accuracy
 
 from nere.config import Config
 from nere.data_helper import DataHelper
@@ -53,7 +56,9 @@ class Trainer(object):
         num_rel_tags = len(self.data_helper.rel_label2id)
         if Config.load_pretrain and os.path.isfile(self.model_path):
             # 载入预训练model
-            model = load_model(self.model_path, custom_objects={})
+            model = load_model(self.model_path, custom_objects={"CRF": CRF,
+                                                                "crf_loss": crf_loss,
+                                                                "crf_viterbi_accuracy": crf_viterbi_accuracy})
             logging.info("\n*** keras load model :{}".format(self.model_path))
         elif self.task == "ner":
             from nere.ner.keras_models import get_bilstm, get_bilstm_crf
@@ -70,7 +75,7 @@ class Trainer(object):
 
     def run(self):
         model = self.get_model()
-        if self.mode == "evaluate":
+        if self.mode == "test":
             acc, precision, recall, f1 = Evaluator(framework="keras", task="ner", data_type="test").test(model=model)
             _test_log = "acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
                 acc, precision, recall, f1)
