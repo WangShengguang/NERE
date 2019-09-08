@@ -22,11 +22,10 @@ Named Entity Recognition &amp; Relation Extraction
 |模型|accuracy|precision|recall|f1|
 |---|---|---|---|---|
 |BERTMultitask|0.9352|0.9083|0.9105|0.9086|
-|BERTSoftmax|0.7874|0.7684|0.6965|0.7184|
-|BiLSTM|0.4852|0.2516|0.2014|0.1896|
+|BERTSoftmax|0.9283|0.9032|0.8868|0.8931|
+|BiLSTM|0.8077|0.8140|0.6898|0.7142|
+|BiLSTM_ATT|0.8169|0.8213|0.7025|0.7344|
 |ACNN|0.1300|0.0944|0.2079|0.1134|
-|BiLSTM_ATT|0.1300|0.0944|0.2079|0.1134|
-
 
 
 ### 联合训练 
@@ -42,6 +41,16 @@ Named Entity Recognition &amp; Relation Extraction
 * RE acc: 0.9392, precision: 0.9230, recall: 0.9147, f1: 0.9177
 
 5+1
+* NER acc: 0.9902, precision: 0.9764, recall: 0.9798, f1: 0.9754
+* RE acc: 0.9410, precision: 0.9135, recall: 0.9060, f1: 0.9091
+
+1+15
+* NER acc: 0.9918, precision: 0.9759, recall: 0.9816, f1: 0.9759
+* RE acc: 0.9427, precision: 0.9222, recall: 0.9096, f1: 0.9153
+
+1+8
+* NER acc: 0.9796, precision: 0.9777, recall: 0.9638, f1: 0.9667
+* RE acc: 0.9375, precision: 0.8992, recall: 0.9264, f1: 0.9116
 
 
 

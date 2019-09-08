@@ -31,7 +31,7 @@ class DataConfig(object):
     keras_ckpt_dir = os.path.join(model_ckpt_dir, "keras")
     # pretrain model
     bert_pretrained_dir = os.path.join(model_ckpt_dir, "bert-base-chinese-pytorch")
-    # sample generate
+    bert_config_path = os.path.join(bert_pretrained_dir, 'bert_config.json')
 
 
 class TrainConfig(object):
@@ -45,18 +45,18 @@ class TrainConfig(object):
     weight_decay = 0.01
     clip_grad = 2
     # early stop
-    max_epoch_nums = 20
-    min_epoch_nums = 5
+    max_epoch_nums = 50
+    min_epoch_nums = 10
     patience = 0.01
     patience_num = 3
     # model save & load
     load_pretrain = True  # 断点续训
     max_to_keep = 10
-    save_step = 200
+    check_step = 200
 
 
 class EvaluateConfig(object):
-    load_model_mode = "max_step"
+    load_model_mode = "min_loss"
 
 
 class BertConfig(object):
@@ -79,7 +79,6 @@ class TfConfig(object):
         TF_CPP_MIN_LOG_LEVEL 取值 3 ： 屏蔽通知信息、警告信息和报错信息
     """
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
-
 
 
 class Config(DataConfig, TorchConfig, BertConfig, TrainConfig, EvaluateConfig):

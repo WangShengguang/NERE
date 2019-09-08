@@ -50,7 +50,7 @@ class BaseTrainer(object):
         if Config.gradient_accumulation_steps > 1:
             loss = loss / Config.gradient_accumulation_steps
         # compute gradients of all variables wrt loss
-        loss.backward()
+        loss.backward(retain_graph=True)
 
         if self.global_step % Config.gradient_accumulation_steps == 0:
             # gradient clipping
@@ -74,6 +74,7 @@ class Trainer(BaseTrainer):
         # evaluate
         self.evaluator = Evaluator(framework="torch", task=task, data_type="val")
         self.best_val_f1 = 0
+        self.best_loss = 100000
         self.patience_counter = Config.patience_num
         #
         self.data_helper = DataHelper()
@@ -129,6 +130,11 @@ class Trainer(BaseTrainer):
         self.init_model(model)
         return model
 
+    def save_best_loss_model(self, loss):
+        if loss < self.best_loss:
+            torch.save(self.model.state_dict(), self.model_path)
+            self.best_loss = loss
+
     def evaluate(self):
         # with torch.no_grad():  # 适用于测试阶段，不需要反向传播
         acc, precision, recall, f1 = self.evaluator.test(model=self.model)
@@ -167,21 +173,23 @@ class Trainer(BaseTrainer):
             return
         logging.info("{}-{} start train , epoch_nums:{}...".format(self.task, self.model_name, Config.max_epoch_nums))
         train_data = self.data_helper.get_joint_data(task=self.task, data_type="train")
-        for epoch_num in trange(Config.max_epoch_nums, desc="train epoch num"):
+        loss = self.best_loss
+        for epoch_num in trange(Config.max_epoch_nums, desc="{} train epoch num".format(self.model_name)):
             for batch_data in self.data_helper.batch_iter(train_data, batch_size=Config.batch_size, re_type="torch"):
                 loss = self.train_step(batch_data)
-                logging.info("* global_step:{} loss: {:.4f}".format(self.global_step, loss.item()))
                 self.backfoward(loss)
                 self.global_step += 1
                 self.scheduler.step(epoch=epoch_num)  # 更新学习率
-                if self.global_step % Config.save_step == 0:
-                    self.evaluate()
-            self.evaluate()
+                if self.global_step % Config.check_step == 0:
+                    logging.info("* global_step:{} loss: {:.4f}".format(self.global_step, loss.item()))
+                    self.save_best_loss_model(loss)
+            self.save_best_loss_model(loss)
             logging.info("epoch_num: {} end .".format(epoch_num))
             # Early stopping and logging best f1
             if (self.patience_counter >= Config.patience_num and epoch_num > Config.min_epoch_nums) \
                     or epoch_num == Config.max_epoch_nums:
-                logging.info("{}-{}, Best val f1: {:05.2f}".format(self.task, self.model_name, self.best_val_f1))
+                logging.info("{}, Best val f1: {:.4f} best loss:{:.4f}".format(self.model_name, self.best_val_f1,
+                                                                               self.best_loss))
                 break
 
 
@@ -193,6 +201,7 @@ class JoinTrainer(Trainer):
         super().__init__(model_name="joint" + ner_model + re_model, task=task)
         self.ner_model = ner_model
         self.re_model = re_model
+        self.model_name = "joint" + ner_model + re_model
         self.mode = mode
         self.ner_path = os.path.join(self.model_dir, "joint_ner_{}.bin".format(self.ner_model))
         self.re_path = os.path.join(self.model_dir, "joint_re_{}.bin".format(self.re_model))
@@ -269,23 +278,26 @@ class JoinTrainer(Trainer):
             print(_re_log)
             return
         train_data = self.data_helper.get_joint_data(task=self.task, data_type="train")
-        for epoch_num in trange(Config.max_epoch_nums, desc="train epoch num"):
+        loss = self.best_loss
+        for epoch_num in trange(Config.max_epoch_nums, desc="{} train epoch num".format(self.model_name)):
             for batch_data in self.data_helper.batch_iter(train_data, batch_size=Config.batch_size, re_type="torch"):
                 try:
                     loss = self.train_step(batch_data)
                 except:
                     logging.error(traceback.format_exc())
                     continue
-                logging.info("* global_step:{} loss: {:.4f}".format(self.global_step, loss.item()))
                 self.backfoward(loss)
                 self.global_step += 1
                 self.scheduler.step(epoch=epoch_num)  # 更新学习率
-                if self.global_step % Config.save_step == 0:
-                    self.evaluate()
+                if self.global_step % Config.check_step == 0:
+                    logging.info("* global_step:{} loss: {:.4f}".format(self.global_step, loss.item()))
+                    self.save_best_loss_model(loss)
+            self.save_best_loss_model(loss)
             self.evaluate()
             logging.info("epoch_num: {} end .".format(epoch_num))
             # Early stopping and logging best f1
             if (self.patience_counter >= Config.patience_num and epoch_num > Config.min_epoch_nums) \
                     or epoch_num == Config.max_epoch_nums:
-                logging.info("{}-{}, Best val f1: {}".format(self.task, self.model_name, self.best_val_f1_dict))
+                logging.info("{}, Best val f1: {:.4f} best loss:{:.4f}".format(self.model_name, self.best_val_f1,
+                                                                               self.best_loss))
                 break

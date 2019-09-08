@@ -15,12 +15,14 @@ class Predictor(object):
         self.model = None
         self.data_helper = DataHelper()
 
-    def load_model(self, task, model_name):
+    def __load_model(self, task, model_name):
         if self.framework == "keras":
             model_path = os.path.join(Config.keras_ckpt_dir, task, model_name)
             assert os.path.isfile(model_path)
             model = keras.models.load_model(model_path)
         elif self.framework == "tf":
+            model = None
+        elif self.framework == "torch":
             model = None
         else:
             raise ValueError(self.framework)
@@ -76,7 +78,7 @@ class Evaluator(Predictor):
 
     def test(self, model=None):
         if isinstance(model, str):
-            model = self.load_model(self.task, model)
+            model = self.__load_model(self.task, model)
         self.model = model
         if self.task == "ner":
             res = self.test_ner()  # acc, precision, recall, f1

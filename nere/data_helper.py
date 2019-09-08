@@ -54,6 +54,7 @@ class DataHelper(object):
         with open(os.path.join(Config.re_data_dir, "ent_labels.txt"), "r", encoding="utf-8") as f:
             entity_labels = [line.strip() for line in f.readlines()]  # 伤残、机动车、非机动车
             self.ent_label2id = {ent_label: id for id, ent_label in enumerate(entity_labels)}
+        self.other_rel_label_id = self.rel_label2id['其他'] if '其他' in self.rel_label2id else self.rel_label2id['Other']
         # Other types of relationships do not participate in the assessment
 
     def load_ner_tags(self):

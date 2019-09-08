@@ -114,3 +114,7 @@ model_ckpt/
 #
 local/
 law/
+
+nere/_lkg
+
+#*.txt

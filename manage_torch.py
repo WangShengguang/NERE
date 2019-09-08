@@ -53,7 +53,7 @@ def run_all(task):
 def main():
     ''' Parse command line arguments and execute the code
         --stream_log, --relative_path, --log_level
-        --allow_gpus, --cpu
+        --allow_gpus, --cpu_only
     '''
     parser = Hparams().parser
     group = parser.add_mutually_exclusive_group(required=True)  # 一组互斥参数,且至少需要互斥参数中的一个
@@ -98,6 +98,8 @@ if __name__ == '__main__':
         python manage_torch.py  --ner BERTCRF --mode train  
         python manage_torch.py  --joint respective --mode test  
         nohup python manage_torch.py --joint respective --mode train --process_name J &
+        nohup python manage_torch.py  --all re --process_name re_all &  
+
     """
 
     main()
