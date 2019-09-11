@@ -10,7 +10,7 @@ from keras_contrib.layers import CRF
 from keras_contrib.losses import crf_loss
 from keras_contrib.metrics import crf_viterbi_accuracy
 
-from nere.config import Config
+from config import Config
 from nere.data_helper import DataHelper
 from nere.evaluator import Evaluator
 

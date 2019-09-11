@@ -52,6 +52,8 @@ Named Entity Recognition &amp; Relation Extraction
 * NER acc: 0.9796, precision: 0.9777, recall: 0.9638, f1: 0.9667
 * RE acc: 0.9375, precision: 0.8992, recall: 0.9264, f1: 0.9116
 
+ model:joint_0.1BERTCRF_0.89BERTMultitask_0.01TransE, NER acc: 0.9214, precision: 0.9603, recall: 0.9286, f1: 0.9345
+ model:joint_0.1BERTCRF_0.89BERTMultitask_0.01TransE,  RE acc: 0.9678, precision: 0.9589, recall: 0.9379, f1: 0.9476
 
 
 - [Multi-label classification with keras](https://www.kaggle.com/roccoli/multi-label-classification-with-keras)

@@ -4,7 +4,7 @@ import keras
 import numpy as np
 from sklearn.metrics import accuracy_score
 
-from nere.config import Config
+from config import Config
 from nere.data_helper import DataHelper, entity_label2tag
 from nere.metrics import MutilabelMetrics
 

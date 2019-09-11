@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from pytorch_pretrained_bert import BertTokenizer
 
-from nere.config import Config
+from config import Config
 
 entity_label2tag = {'自然人主体': 'NP',
                     '非自然人主体': 'NNP',

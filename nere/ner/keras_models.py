@@ -3,7 +3,7 @@ from keras.losses import categorical_crossentropy
 from keras.models import Sequential
 from keras_contrib.layers import CRF
 
-from nere.config import Config
+from config import Config
 
 embedding_dim = Config.ent_emb_dim
 

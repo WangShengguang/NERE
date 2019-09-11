@@ -7,7 +7,7 @@ import torch
 __all__ = ["Config"]
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
-root_dir = os.path.dirname(cur_dir)
+root_dir = cur_dir
 
 model_ckpt_dir = os.path.join(root_dir, "model_ckpt")
 
@@ -37,7 +37,7 @@ class DataConfig(object):
 class TrainConfig(object):
     # sample data
     max_sequence_len = 400
-    batch_size = 16
+    batch_size = 8
     # train params
     ent_emb_dim = 128
     rel_emb_dim = 768
@@ -46,17 +46,18 @@ class TrainConfig(object):
     clip_grad = 2
     # early stop
     max_epoch_nums = 50
-    min_epoch_nums = 10
+    min_epoch_nums = 3
     patience = 0.01
     patience_num = 3
     # model save & load
     load_pretrain = True  # 断点续训
     max_to_keep = 10
-    check_step = 200
+    check_step = 100
 
 
 class EvaluateConfig(object):
-    load_model_mode = "min_loss"
+    load_model_mode = "max_step"
+    # load_model_mode = "min_loss"
 
 
 class BertConfig(object):

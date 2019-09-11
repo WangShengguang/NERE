@@ -1,14 +1,18 @@
 from torch import nn
 
-from nere.config import Config
+from config import Config
 from nere.ner.torch_models import BERTSoftmax as NerBERTSoftmax, BERTCRF as NerBERTCRF
 from nere.re.torch_models import BERTSoftmax as ReBERTSoftmax, BERTMultitask as ReBERTMultitask
 
 
 class JointNerRe(nn.Module):
 
-    def __init__(self, ner_model, re_model, num_ner_labels, num_re_labels):
+    def __init__(self, ner_model, re_model, num_ner_labels, num_re_labels,
+                 ner_loss_rate, re_loss_rate, transe_rate=1e-5):
         super(JointNerRe, self).__init__()
+        self.ner_loss_rate = ner_loss_rate
+        self.re_loss_rate = re_loss_rate
+        self.transe_rate = transe_rate / re_loss_rate
         if ner_model == "BERTSoftmax":
             self.ner = NerBERTSoftmax.from_pretrained(Config.bert_pretrained_dir, num_ner_labels)
         elif ner_model == "BERTCRF":
@@ -43,7 +47,7 @@ class JointNerRe(nn.Module):
                 ner_loss = self.ner(batch_data["sents"], token_type_ids=None,
                                     attention_mask=batch_masks, labels=batch_data["ent_tags"])
                 re_loss = self.re(batch_data, labels=batch_data["rel_labels"])
-                loss = ner_loss + 10 * re_loss
+                loss = self.ner_loss_rate * ner_loss + self.re_loss_rate * re_loss
                 return loss
         else:  # eval
             if mode == "ner":

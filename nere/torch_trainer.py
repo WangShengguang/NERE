@@ -9,9 +9,10 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import LambdaLR
 from tqdm import trange
 
-from nere.config import Config
+from config import Config
 from nere.data_helper import DataHelper
 from nere.evaluator import Evaluator
+import gc
 
 
 class BaseTrainer(object):
@@ -131,7 +132,7 @@ class Trainer(BaseTrainer):
         return model
 
     def save_best_loss_model(self, loss):
-        if loss < self.best_loss:
+        if loss <= self.best_loss:
             torch.save(self.model.state_dict(), self.model_path)
             self.best_loss = loss
 
@@ -193,30 +194,35 @@ class Trainer(BaseTrainer):
                 break
 
 
-from nere.joint_models import nnJointNerRe
-
-
 class JoinTrainer(Trainer):
-    def __init__(self, task, ner_model, re_model, mode="train"):
+    def __init__(self, task, ner_model, re_model, mode="train",
+                 ner_loss_rate=0.15, re_loss_rate=0.8, transe_rate=0.05):
         super().__init__(model_name="joint" + ner_model + re_model, task=task)
         self.ner_model = ner_model
         self.re_model = re_model
-        self.model_name = "joint" + ner_model + re_model
+        self.model_name = "joint_{:.5}{}_{:.5}{}_{:.5}TransE".format(
+            ner_loss_rate, ner_model, re_loss_rate, re_model, transe_rate)
         self.mode = mode
+        # join rate
+        self.ner_loss_rate = ner_loss_rate
+        self.re_loss_rate = re_loss_rate
+        self.transe_rate = transe_rate
         self.ner_path = os.path.join(self.model_dir, "joint_ner_{}.bin".format(self.ner_model))
         self.re_path = os.path.join(self.model_dir, "joint_re_{}.bin".format(self.re_model))
         self.joint_path = os.path.join(self.model_dir, "joint{}{}.bin".format(self.ner_model, self.re_model))
         self.best_val_f1_dict = {"NER": 0, "RE": 0, "Joint": {"Joint": 0, "NER": 0, "RE": 0}}
 
     def get_model(self):
+        from nere.joint_models import JointNerRe, nnJointNerRe
         self.data_helper = DataHelper()
         num_ner_tags = len(self.data_helper.ent_tag2id)
         num_re_tags = len(self.data_helper.rel_label2id)
-        # model = JointNerRe.from_pretrained(Config.bert_pretrained_dir,
-        #                                    ner_model=self.ner_model, re_model=self.re_model,
-        #                                    num_ner_labels=num_ner_tags, num_re_labels=num_re_tags)
-        model = nnJointNerRe(ner_model=self.ner_model, re_model=self.re_model,
-                             num_ner_labels=num_ner_tags, num_re_labels=num_re_tags)
+        # model = nnJointNerRe(ner_model=self.ner_model, re_model=self.re_model,
+        #                      num_ner_labels=num_ner_tags, num_re_labels=num_re_tags,
+        #                      ner_loss_rate=0.1, re_loss_rate=0.8, transe_rate=0.1)
+        model = JointNerRe.from_pretrained(Config.bert_pretrained_dir, ner_model=self.ner_model, re_model=self.re_model,
+                                           num_ner_labels=num_ner_tags, num_re_labels=num_re_tags,
+                                           ner_loss_rate=0.1, re_loss_rate=0.8, transe_rate=0.1)
         if self.task == "joint":
             if Config.load_pretrain and Path(self.joint_path).is_file():
                 model.load_state_dict(torch.load(self.joint_path))  # 断点续训
@@ -285,6 +291,7 @@ class JoinTrainer(Trainer):
                     loss = self.train_step(batch_data)
                 except:
                     logging.error(traceback.format_exc())
+                    gc.collect()
                     continue
                 self.backfoward(loss)
                 self.global_step += 1

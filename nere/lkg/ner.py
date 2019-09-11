@@ -6,7 +6,7 @@ import re
 import torch
 from pytorch_pretrained_bert import BertTokenizer, BertConfig
 
-from nere.config import Config
+from config import Config
 from nere.data_helper import entity_label2tag
 from nere.evaluator import Predictor
 from nere.ner.torch_models import BERTSoftmax, BERTCRF

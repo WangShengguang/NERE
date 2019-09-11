@@ -2,7 +2,7 @@
 import torch
 import torch.nn as nn
 
-from nere.config import Config
+from config import Config
 
 
 class BiLSTM(nn.Module):

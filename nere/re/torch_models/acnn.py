@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from keras.utils import to_categorical
 from torch import nn
 
-from nere.config import Config
+from config import Config
 
 
 class ACNN(nn.Module):

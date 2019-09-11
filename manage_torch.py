@@ -1,3 +1,4 @@
+import gc
 import os
 
 from nere.utils.gpu_selector import get_available_gpu
@@ -6,18 +7,32 @@ from nere.utils.logger import logging_config
 
 
 def torch_run(task, model_name, mode):
-    logging_config("{}_{}_{}_torch.log".format(task,model_name, mode))
+    logging_config("{}_{}_{}_torch.log".format(task, model_name, mode))
     if task == "ner":
         from nere.torch_trainer import Trainer
         Trainer(model_name=model_name, task=task, mode=mode).run()
     elif task == "re":
         from nere.torch_trainer import Trainer
         Trainer(model_name=model_name, task=task, mode=mode).run()
-    elif task == "joint":
-        ner_model = "BERTCRF"
-        re_model = "BERTMultitask"
-        from nere.torch_trainer import JoinTrainer
-        JoinTrainer(task=task, ner_model=ner_model, re_model=re_model, mode=mode).run()
+
+
+def join_run():
+    ner_model = "BERTCRF"
+    re_model = "BERTMultitask"
+    for ner_loss_rate, re_loss_rate, transe_rate in [(0.1, 0.89, 0.01),
+                                                     (0.1, 0.85, 0.05),
+                                                     (0.2, 0.75, 0.05),
+                                                     (0.3, 0.65, 0.05),
+                                                     (0.4, 0.55, 0.05)]:
+        assert sum([ner_loss_rate, re_loss_rate, transe_rate]) == 1.0, print(ner_loss_rate, re_loss_rate, transe_rate)
+        model_name = "joint_{:.5}{}_{:.5}{}_{:.5}TransE".format(ner_loss_rate, ner_model, re_loss_rate, re_model,
+                                                                transe_rate)
+        for mode in ["train", "test"]:
+            logging_config("{}_{}_torch.log".format(model_name, mode))
+            from nere.torch_trainer import JoinTrainer
+            JoinTrainer(task="joint", ner_model=ner_model, re_model=re_model, mode=mode,
+                        ner_loss_rate=ner_loss_rate, re_loss_rate=re_loss_rate, transe_rate=transe_rate).run()
+            gc.collect()
 
 
 def run_all(task):
@@ -26,6 +41,7 @@ def run_all(task):
         logging_config("ner_all.log")
         from nere.keras_trainer import Trainer
         for model_name in ["bilstm", "bilstm_crf"]:
+            gc.collect()
             try:
                 Trainer(task="ner", model_name=model_name, mode="train").run()
             except:
@@ -43,6 +59,7 @@ def run_all(task):
         logging_config("re_all.log")
         from nere.torch_trainer import Trainer
         for model_name in ["BiLSTM_ATT", "ACNN", "BiLSTM", "BERTSoftmax", "BERTMultitask", ]:
+            gc.collect()
             try:
                 Trainer(model_name=model_name, task=task, mode="train").run()
             except:
@@ -81,13 +98,13 @@ def main():
         available_gpu = get_available_gpu(num_gpu=1, allow_gpus=args.allow_gpus)  # default allow_gpus 0,1,2,3
         os.environ["CUDA_VISIBLE_DEVICES"] = available_gpu
         print("* using GPU: {} ".format(available_gpu))  # config前不可logging，否则config失效
-    set_process_name(args.process_name)  # 设置进程名
+    # set_process_name(args.process_name)  # 设置进程名
     if args.ner:
         torch_run(task="ner", model_name=args.ner, mode=args.mode)
     elif args.re:
         torch_run(task="re", model_name=args.re, mode=args.mode)
     elif args.joint:
-        torch_run(task="joint", model_name=args.joint, mode=args.mode)
+        join_run()
     elif args.all:
         run_all(task=args.all)
 
@@ -97,9 +114,8 @@ if __name__ == '__main__':
     examples:
         python manage_torch.py  --ner BERTCRF --mode train  
         python manage_torch.py  --joint respective --mode test  
-        nohup python manage_torch.py --joint respective --mode train --process_name J &
+        nohup python manage_torch.py --joint respective --mode train --process_name joint &
         nohup python manage_torch.py  --all re --process_name re_all &  
-
     """
 
     main()
