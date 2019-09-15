@@ -34,6 +34,26 @@ class DataConfig(object):
     bert_config_path = os.path.join(bert_pretrained_dir, 'bert_config.json')
 
 
+class LKGConfig(object):
+    lkg_data_dir = os.path.join(DataConfig.data_dir, "lkg")
+    lkg_cate_file = os.path.join(lkg_data_dir, "cate_data", "001.txt")
+    #
+    lkg_train_data_dir = os.path.join(lkg_data_dir, "data")  # 待抽取数据
+    lkg_out_data_dir = os.path.join(lkg_data_dir, "out_data")
+    # result file
+    result_file = os.path.join(lkg_data_dir, "result.txt")
+    triples_result_file = os.path.join(lkg_data_dir, "triples_result.txt")
+    # lawdata for ke
+    lawdata_dir = os.path.join(lkg_data_dir, "lawdata")
+    out_entity_vocab = os.path.join(lawdata_dir, 'entity2id.txt')
+    out_relation_vocab = os.path.join(lawdata_dir, 'relation2id.txt')
+    out_triple_file = os.path.join(lawdata_dir, 'train.txt')
+    # KE train file
+    train2id_file = os.path.join(lawdata_dir, "train2id.txt")
+    valid2id_file = os.path.join(lawdata_dir, "valid2id.txt")
+    test2id_file = os.path.join(lawdata_dir, "test2id.txt")
+
+
 class TrainConfig(object):
     # sample data
     max_sequence_len = 400
@@ -82,9 +102,10 @@ class TfConfig(object):
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
 
 
-class Config(DataConfig, TorchConfig, BertConfig, TrainConfig, EvaluateConfig):
+class Config(DataConfig, TorchConfig, BertConfig, TrainConfig, EvaluateConfig, LKGConfig):
     pass
 
 
-for _dir in [DataConfig.torch_ckpt_dir, DataConfig.keras_ckpt_dir, DataConfig.tf_ckpt_dir]:
+for _dir in [DataConfig.torch_ckpt_dir, DataConfig.keras_ckpt_dir, DataConfig.tf_ckpt_dir,
+             LKGConfig.lawdata_dir]:
     os.makedirs(_dir, exist_ok=True)

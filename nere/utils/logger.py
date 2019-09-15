@@ -21,7 +21,7 @@ def logging_config(logging_name='./run.log', stream_log=False, log_level="info")
     )
 
 
-if __name__ == "__main__":
-    logging_config("./test.log", stream_log=True)  # ../../log/test.log
-    logging.info("标准输出 log ...")
-    logging.debug("hello")
+# if __name__ == "__main__":
+#     logging_config("./test.log", stream_log=True)  # ../../log/test.log
+#     logging.info("标准输出 log ...")
+#     logging.debug("hello")

@@ -17,7 +17,7 @@ class EntityRecognition(Predictor):
         super().__init__(framework="torch")
         self.max_len = max_len
         self.idx2tag = self.data_helper.id2ent_tag
-        self.abbr2label = {label: abbr for label, abbr in entity_label2tag.items()}
+        self.abbr2label = {abbr: label for label, abbr in entity_label2tag.items()}
         self.tokenizer = BertTokenizer.from_pretrained(Config.bert_pretrained_dir, do_lower_case=True)
         self.model = self.load_model(model_name)
 
@@ -115,7 +115,7 @@ class EntityRecognition(Predictor):
             sent_entities = []
             for span_tokens, token_ids in spans_data:
                 pred_indices = self.model(token_ids)
-                pred_indices = pred_indices.squeeze(0).numpy()
+                pred_indices = pred_indices.squeeze(0).cpu().numpy()
                 pred_tags = [self.idx2tag[idx] for idx in pred_indices]
                 assert len(span_tokens) == len(pred_tags)
                 i = 0

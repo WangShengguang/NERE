@@ -16,6 +16,9 @@ Named Entity Recognition &amp; Relation Extraction
 
 |BiLSTMCRF|0.9852|0.9895|0.9662|0.9741|
 
+bilstm test acc: 0.9912, precision: 0.9731, recall: 0.9721, f1: 0.9684
+bilstm_crf test acc: 0.9841, precision: 0.8923, recall: 0.9123, f1: 0.8961
+
 
 
 ### 关系识别
@@ -28,6 +31,10 @@ Named Entity Recognition &amp; Relation Extraction
 |ACNN|0.1300|0.0944|0.2079|0.1134|
 
 
+* model:BERTSoftmax, test acc: 0.9390, precision: 0.9399, recall: 0.8748, f1: 0.8893
+* model:BiLSTM_ATT, test acc: 0.8169, precision: 0.8213, recall: 0.7025, f1: 0.7344
+
+
 ### 联合训练 
 |模型|组合方式|任务|accuracy|precision|recall|f1|
 |---|---|---|---|---|---|---|
@@ -35,6 +42,8 @@ Named Entity Recognition &amp; Relation Extraction
 |BERTCRF+BERTMultitask|ner_loss + 10 * re_loss|RE|0.9423|0.9333|0.9165|0.9226|
 |BERTCRF+BERTMultitask|ner_loss + 5 * re_loss|NER|0.9901|0.9841|0.9800|0.9797|
 |BERTCRF+BERTMultitask|ner_loss + 5 * re_loss|RE|0.9371|0.9162|0.9213|0.9184|
+
+
 
 1+1
 * NER acc: 0.9932, precision: 0.9791, recall: 0.9795, f1: 0.9768

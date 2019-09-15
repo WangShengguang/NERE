@@ -2,7 +2,6 @@ import gc
 import logging
 import os
 
-import matplotlib.pyplot as plt
 from keras.callbacks import ReduceLROnPlateau, EarlyStopping, ModelCheckpoint
 from keras.models import load_model
 from keras.utils.np_utils import to_categorical
@@ -77,8 +76,8 @@ class Trainer(object):
         model = self.get_model()
         if self.mode == "test":
             acc, precision, recall, f1 = Evaluator(framework="keras", task="ner", data_type="test").test(model=model)
-            _test_log = "acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
-                acc, precision, recall, f1)
+            _test_log = "{} test acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
+                self.model_name, acc, precision, recall, f1)
             logging.info(_test_log)
             print(_test_log)
             return
@@ -101,20 +100,3 @@ class Trainer(object):
                             )
         # plot_history(history)
         logging.info("Done. save model : {}".format(self.model_path))
-
-
-def plot_history(history):
-    plt.subplot(211)
-    plt.title("accuracy")
-    plt.plot(history.history["acc"], color="r", label="train")
-    plt.plot(history.history["val_acc"], color="b", label="val")
-    plt.legend(loc="best")
-
-    plt.subplot(212)
-    plt.title("loss")
-    plt.plot(history.history["loss"], color="r", label="train")
-    plt.plot(history.history["val_loss"], color="b", label="val")
-    plt.legend(loc="best")
-
-    plt.tight_layout()
-    plt.show()

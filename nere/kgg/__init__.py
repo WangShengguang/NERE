@@ -1,0 +1,3 @@
+"""
+law knowledge graph
+"""

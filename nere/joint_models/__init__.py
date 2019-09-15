@@ -1,4 +1,3 @@
-from .models import JointNerRe
-from .nn_join_model import JointNerRe as nnJointNerRe
+from .join_model import JointNerRe
 
-__all__ = ["JointNerRe", "nnJointNerRe"]
+__all__ = ["JointNerRe"]

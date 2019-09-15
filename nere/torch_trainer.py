@@ -1,6 +1,6 @@
+import gc
 import logging
 import os
-import traceback
 from pathlib import Path
 
 import torch
@@ -12,7 +12,6 @@ from tqdm import trange
 from config import Config
 from nere.data_helper import DataHelper
 from nere.evaluator import Evaluator
-import gc
 
 
 class BaseTrainer(object):
@@ -101,7 +100,7 @@ class Trainer(BaseTrainer):
         return model
 
     def get_ner_model(self):
-        from nere.ner.torch_models import BERTCRF, BERTSoftmax, BiLSTM_ATT
+        from nere.ner.torch_models import BERTCRF, BiLSTM, BERTSoftmax, BiLSTM_ATT
 
         num_ent_tags = len(self.data_helper.ent_tag2id)
         vocab_size = len(self.data_helper.tokenizer.vocab)
@@ -110,8 +109,8 @@ class Trainer(BaseTrainer):
             model = BERTCRF.from_pretrained(Config.bert_pretrained_dir, num_labels=num_ent_tags)
         elif self.model_name == 'BERTSoftmax':
             model = BERTSoftmax.from_pretrained(Config.bert_pretrained_dir, num_labels=num_ent_tags)
-        # elif self.model_name == "CNN_ATT":
-        #     model = CNN_ATT(vocab_size, num_ent_tags)
+        elif self.model_name == "BiLSTM":
+            model = BiLSTM(vocab_size, num_ent_tags)
         elif self.model_name == "BiLSTM_ATT":
             model = BiLSTM_ATT(vocab_size, num_ent_tags)
         else:
@@ -175,6 +174,8 @@ class Trainer(BaseTrainer):
         logging.info("{}-{} start train , epoch_nums:{}...".format(self.task, self.model_name, Config.max_epoch_nums))
         train_data = self.data_helper.get_joint_data(task=self.task, data_type="train")
         loss = self.best_loss
+        self.save_best_loss_model(loss)
+
         for epoch_num in trange(Config.max_epoch_nums, desc="{} train epoch num".format(self.model_name)):
             for batch_data in self.data_helper.batch_iter(train_data, batch_size=Config.batch_size, re_type="torch"):
                 loss = self.train_step(batch_data)
@@ -183,12 +184,12 @@ class Trainer(BaseTrainer):
                 self.scheduler.step(epoch=epoch_num)  # 更新学习率
                 if self.global_step % Config.check_step == 0:
                     logging.info("* global_step:{} loss: {:.4f}".format(self.global_step, loss.item()))
+                    # print("* global_step:{} loss: {:.4f}".format(self.global_step, loss.item()))
                     self.save_best_loss_model(loss)
             self.save_best_loss_model(loss)
             logging.info("epoch_num: {} end .".format(epoch_num))
             # Early stopping and logging best f1
-            if (self.patience_counter >= Config.patience_num and epoch_num > Config.min_epoch_nums) \
-                    or epoch_num == Config.max_epoch_nums:
+            if self.patience_counter >= Config.patience_num and epoch_num > Config.min_epoch_nums:
                 logging.info("{}, Best val f1: {:.4f} best loss:{:.4f}".format(self.model_name, self.best_val_f1,
                                                                                self.best_loss))
                 break
@@ -197,32 +198,32 @@ class Trainer(BaseTrainer):
 class JoinTrainer(Trainer):
     def __init__(self, task, ner_model, re_model, mode="train",
                  ner_loss_rate=0.15, re_loss_rate=0.8, transe_rate=0.05):
-        super().__init__(model_name="joint" + ner_model + re_model, task=task)
-        self.ner_model = ner_model
-        self.re_model = re_model
         self.model_name = "joint_{:.5}{}_{:.5}{}_{:.5}TransE".format(
             ner_loss_rate, ner_model, re_loss_rate, re_model, transe_rate)
+        super().__init__(model_name=self.model_name, task=task)
+        self.ner_model = ner_model
+        self.re_model = re_model
         self.mode = mode
         # join rate
         self.ner_loss_rate = ner_loss_rate
         self.re_loss_rate = re_loss_rate
         self.transe_rate = transe_rate
-        self.ner_path = os.path.join(self.model_dir, "joint_ner_{}.bin".format(self.ner_model))
-        self.re_path = os.path.join(self.model_dir, "joint_re_{}.bin".format(self.re_model))
-        self.joint_path = os.path.join(self.model_dir, "joint{}{}.bin".format(self.ner_model, self.re_model))
+        self.ner_path = os.path.join(self.model_dir, "{}_ner.bin".format(self.model_name))
+        self.re_path = os.path.join(self.model_dir, "{}_re.bin".format(self.model_name))
+        self.joint_path = os.path.join(self.model_dir, self.model_name + ".bin")
         self.best_val_f1_dict = {"NER": 0, "RE": 0, "Joint": {"Joint": 0, "NER": 0, "RE": 0}}
 
     def get_model(self):
-        from nere.joint_models import JointNerRe, nnJointNerRe
+        from nere.joint_models import JointNerRe
         self.data_helper = DataHelper()
         num_ner_tags = len(self.data_helper.ent_tag2id)
         num_re_tags = len(self.data_helper.rel_label2id)
         # model = nnJointNerRe(ner_model=self.ner_model, re_model=self.re_model,
         #                      num_ner_labels=num_ner_tags, num_re_labels=num_re_tags,
         #                      ner_loss_rate=0.1, re_loss_rate=0.8, transe_rate=0.1)
-        model = JointNerRe.from_pretrained(Config.bert_pretrained_dir, ner_model=self.ner_model, re_model=self.re_model,
-                                           num_ner_labels=num_ner_tags, num_re_labels=num_re_tags,
-                                           ner_loss_rate=0.1, re_loss_rate=0.8, transe_rate=0.1)
+        model = JointNerRe(ner_model=self.ner_model, re_model=self.re_model,
+                           num_ner_labels=num_ner_tags, num_re_labels=num_re_tags,
+                           ner_loss_rate=0.1, re_loss_rate=0.8, transe_rate=0.1)
         if self.task == "joint":
             if Config.load_pretrain and Path(self.joint_path).is_file():
                 model.load_state_dict(torch.load(self.joint_path))  # 断点续训
@@ -273,11 +274,16 @@ class JoinTrainer(Trainer):
         return loss
 
     def run(self):
+        _log_str = "*{} {} start ...".format(self.model_name, self.mode)
+        logging.info(_log_str)
+        print(_log_str)
         self.model = self.get_model()
         if self.mode == "test":
             metrics = Evaluator(framework="torch", task=self.task, data_type="test").test(model=self.model)
-            _ner_log = "* NER acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(*metrics["NER"])
-            _re_log = "* RE acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(*metrics["RE"])
+            _ner_log = "*{} test NER acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(self.model_name,
+                                                                                                        *metrics["NER"])
+            _re_log = "*{} test RE acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(self.model_name,
+                                                                                                      *metrics["RE"])
             logging.info(_ner_log)
             logging.info(_re_log)
             print(_ner_log)
@@ -289,8 +295,9 @@ class JoinTrainer(Trainer):
             for batch_data in self.data_helper.batch_iter(train_data, batch_size=Config.batch_size, re_type="torch"):
                 try:
                     loss = self.train_step(batch_data)
-                except:
-                    logging.error(traceback.format_exc())
+                except Exception as e:
+                    logging.error(e)
+                    # logging.error(traceback.format_exc())
                     gc.collect()
                     continue
                 self.backfoward(loss)
@@ -303,8 +310,7 @@ class JoinTrainer(Trainer):
             self.evaluate()
             logging.info("epoch_num: {} end .".format(epoch_num))
             # Early stopping and logging best f1
-            if (self.patience_counter >= Config.patience_num and epoch_num > Config.min_epoch_nums) \
-                    or epoch_num == Config.max_epoch_nums:
+            if self.patience_counter >= Config.patience_num and epoch_num > Config.min_epoch_nums:
                 logging.info("{}, Best val f1: {:.4f} best loss:{:.4f}".format(self.model_name, self.best_val_f1,
                                                                                self.best_loss))
                 break

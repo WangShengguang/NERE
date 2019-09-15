@@ -1,4 +1,5 @@
 import logging
+import time
 import traceback
 from functools import wraps
 
@@ -40,47 +41,46 @@ def todict(obj, classkey=None):
         return obj
 
 
-class ShowTime(object):
+class Debug(object):
     '''
-    用上下文管理器计时
+    用上下文管理器计时; 行内调试等
     '''
-    import time, logging
-    time = time
-    logging = logging
 
-    def __init__(self, prefix="", ipdb=False):
+    def __init__(self, prefix="", into_ipdb=False):
         self.prefix = prefix
-        self.ipdb = ipdb
+        self.into_ipdb = into_ipdb
 
     def __enter__(self):
-        self.t1 = self.time.time()
+        self.t1 = time.time()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.runtime = self.time.time() - self.t1
-        print("{} take time: {:.2f} s".format(self.prefix, self.runtime))
+        self.runtime = time.time() - self.t1
+        time_log = "{} take time: {:.2f} s".format(self.prefix, self.runtime)
+        print(time_log)
+        logging.info(time_log)
         if exc_type is not None:
             print(exc_type, exc_val, exc_tb)
-            import traceback
-            print(traceback.format_exc())
-            if self.ipdb:
+            error_log = traceback.format_exc()
+            print(error_log)
+            logging.error(error_log)
+            if self.into_ipdb:
                 import ipdb
                 ipdb.set_trace()
             return self
 
 
 if __name__ == "__main__":
-    with ShowTime("hello", ipdb=False) as g:
+    with Debug("hello", into_ipdb=False) as g:
         print("*** g.runtime: {}".format(getattr(g, "runtime", "")))
-        import time
-
         time.sleep(2)
+        aaa = 1
         raise ValueError(0)  # 被忽略
         # print(g.t1)
         # raise ValueError(0)
-    g = ShowTime("hello", ipdb=True)
+    print("--" * 50)
+    g = Debug("hello", into_ipdb=True)
     with g:
-        import time
-
         time.sleep(3)
+        bbb = 2
         raise ValueError("222")
