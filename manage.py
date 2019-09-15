@@ -25,7 +25,7 @@ def keras_run(task, model_name, mode):
     Trainer(task="ner", model_name=model_name, mode=mode).run()
 
 
-def join_run():
+def join_run(mode):
     ner_model = "BERTCRF"
     re_model = "BERTMultitask"
     logging_config("joint_{}_{}_all.log".format(ner_model, re_model))
@@ -35,7 +35,7 @@ def join_run():
             re_loss_rate = 1 - ner_loss_rate - transe_rate
             if re_loss_rate <= 0:
                 continue
-            for mode in ["train"]:
+            if mode == "train":
                 JoinTrainer(task="joint", ner_model=ner_model, re_model=re_model, mode=mode,
                             ner_loss_rate=ner_loss_rate, re_loss_rate=re_loss_rate, transe_rate=transe_rate).run()
             # test
@@ -92,10 +92,8 @@ def main():
     group.add_argument('--re', type=str,
                        choices=["BERTSoftmax", "BERTMultitask", "BiLSTM_ATT", "ACNN", "BiLSTM"],  # model name
                        help="Relation Extraction，关系抽取")
-    group.add_argument('--joint', type=str,
-                       choices=["joint", "respective"],  # model name
-                       help="联合训练，load pretrain 的模式")
     group.add_argument('--all', type=str, choices=["ner", "re"], help="训练或测试所有NER/RE模型")
+    group.add_argument('--joint', action="store_true", help="联合训练，load pretrain 的模式")
     group.add_argument('--kgg', action="store_true", help="generation of law knowledge graph")
     parser.add_argument('--mode', type=str, choices=["train", "test"], help="模型训练or测试")
     # parse args
@@ -118,7 +116,7 @@ def main():
     elif args.all:  # NER&RE
         run_all(task=args.all, mode=args.mode)
     elif args.joint:
-        join_run()
+        join_run(mode=args.mode)
     elif args.kgg:
         kgg()
 

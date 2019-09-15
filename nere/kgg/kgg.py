@@ -65,7 +65,7 @@ class KGG(object):
         return list(new_result)
 
 
-def get_triple_result(raw_data=Config.lkg_train_data_dir):
+def get_triple_result(raw_data=Config.kgg_train_data_dir):
     ner_model = "BERTCRF"
     re_model = "BERTMultitask"
     kgg = KGG(ner_model, re_model)
@@ -125,14 +125,14 @@ def gat_cate_ids():
                  '410.txt',
                  '305.txt', '441 (130).txt', '084.txt']
     cate_ids = []
-    for case_file in Path(Config.lkg_train_data_dir).glob("*.txt"):
+    for case_file in Path(Config.kgg_train_data_dir).glob("*.txt"):
         if case_file.name in file_list:
             continue
         case_file = str(case_file)
         with open(case_file, 'r', encoding='utf-8') as f:
             id = f.readline().split('\t')[0]
             cate_ids.append(id)
-            dst_file = os.path.join(Config.lkg_out_data_dir, f"{id}.txt")
+            dst_file = os.path.join(Config.kgg_out_data_dir, f"{id}.txt")
         print(dst_file)
         # shutil.copyfile(case_file, dst_file)
 
@@ -200,6 +200,6 @@ def train2ke(train_file=Config.out_triple_file):
 
 
 def create_lawdata():
-    get_triple_result(raw_data=Config.lkg_train_data_dir)
+    get_triple_result(raw_data=Config.kgg_train_data_dir)
     create_ke_train_data(triples_result_file=Config.triples_result_file)
     train2ke(train_file=Config.out_triple_file)

@@ -166,8 +166,8 @@ class Trainer(BaseTrainer):
         if self.mode == "test":
             acc, precision, recall, f1 = Evaluator(framework="torch", task=self.task, data_type="test").test(
                 model=self.model)
-            _test_log = "* model:{}, test acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
-                self.model_name, acc, precision, recall, f1)
+            _test_log = "* model: {} {}, test acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
+                self.task, self.model_name, acc, precision, recall, f1)
             logging.info(_test_log)
             print(_test_log)
             return
@@ -176,7 +176,7 @@ class Trainer(BaseTrainer):
         loss = self.best_loss
         self.save_best_loss_model(loss)
 
-        for epoch_num in trange(Config.max_epoch_nums, desc="{} train epoch num".format(self.model_name)):
+        for epoch_num in trange(1, Config.max_epoch_nums + 1, desc="{} train epoch num".format(self.model_name)):
             for batch_data in self.data_helper.batch_iter(train_data, batch_size=Config.batch_size, re_type="torch"):
                 loss = self.train_step(batch_data)
                 self.backfoward(loss)
@@ -291,7 +291,7 @@ class JoinTrainer(Trainer):
             return
         train_data = self.data_helper.get_joint_data(task=self.task, data_type="train")
         loss = self.best_loss
-        for epoch_num in trange(Config.max_epoch_nums, desc="{} train epoch num".format(self.model_name)):
+        for epoch_num in trange(1, Config.max_epoch_nums + 1, desc="{} train epoch num".format(self.model_name)):
             for batch_data in self.data_helper.batch_iter(train_data, batch_size=Config.batch_size, re_type="torch"):
                 try:
                     loss = self.train_step(batch_data)

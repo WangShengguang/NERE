@@ -1,9 +1,7 @@
 # NERE
 Named Entity Recognition &amp; Relation Extraction
 
-
-
-
+---
 ## 联合训练对比 
 
 ### 实体识别
@@ -12,27 +10,16 @@ Named Entity Recognition &amp; Relation Extraction
 |BERTCRF|0.9965|0.9923|0.9811|0.9850|
 |BERTSoftmax|0.9918|0.9522|0.9820|0.9613|
 |BiLSTM|0.9852|0.9895|0.9662|0.9741|
-
-
-|BiLSTMCRF|0.9852|0.9895|0.9662|0.9741|
-
-bilstm test acc: 0.9912, precision: 0.9731, recall: 0.9721, f1: 0.9684
-bilstm_crf test acc: 0.9841, precision: 0.8923, recall: 0.9123, f1: 0.8961
-
-
+|BiLSTMCRF|0.9841|0.8923|0.9123|0.8961|
 
 ### 关系识别
 |模型|accuracy|precision|recall|f1|
 |---|---|---|---|---|
 |BERTMultitask|0.9352|0.9083|0.9105|0.9086|
 |BERTSoftmax|0.9283|0.9032|0.8868|0.8931|
-|BiLSTM|0.8077|0.8140|0.6898|0.7142|
+|BiLSTM|0.8166|0.8027|0.7321|0.7500|
 |BiLSTM_ATT|0.8169|0.8213|0.7025|0.7344|
 |ACNN|0.1300|0.0944|0.2079|0.1134|
-
-
-* model:BERTSoftmax, test acc: 0.9390, precision: 0.9399, recall: 0.8748, f1: 0.8893
-* model:BiLSTM_ATT, test acc: 0.8169, precision: 0.8213, recall: 0.7025, f1: 0.7344
 
 
 ### 联合训练 

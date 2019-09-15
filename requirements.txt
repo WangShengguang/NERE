@@ -8,3 +8,5 @@ torch
 pytorch_pretrained_bert
 matplotlib
 python-intervals
+tqdm
+pandas
