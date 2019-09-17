@@ -1,3 +1,4 @@
+import gc
 import logging
 import os
 import random
@@ -9,28 +10,28 @@ from pytorch_pretrained_bert import BertTokenizer
 
 from config import Config
 
-entity_label2tag = {'自然人主体': 'NP',
-                    '非自然人主体': 'NNP',
-                    '机动车': 'MV',
-                    '非机动车': 'NMV',
-                    '责任认定': 'DUT',
-                    '一般人身损害': 'GI',
-                    '伤残': 'DIS',
-                    '死亡': 'DEA',
-                    '人身损害赔偿项目': 'PIC',
-                    '财产损失赔偿项目': 'PLC',
-                    '保险类别': 'INS',
-                    '抗辩事由': 'DEF',
-                    '违反道路交通信号灯': 'VTL',
-                    '饮酒后驾驶': 'DAD',
-                    '醉酒驾驶': 'DD',
-                    '超速': 'SPE',
-                    '违法变更车道': 'ICL',
-                    '未取得驾驶资格': 'UD',
-                    '超载': 'OVE',
-                    '不避让行人': 'NAP',
-                    '行人未走人行横道或过街设施': 'NCF',
-                    '其他违法行为': 'OLA'}
+entity_label2abbr = {'自然人主体': 'NP',
+                     '非自然人主体': 'NNP',
+                     '机动车': 'MV',
+                     '非机动车': 'NMV',
+                     '责任认定': 'DUT',
+                     '一般人身损害': 'GI',
+                     '伤残': 'DIS',
+                     '死亡': 'DEA',
+                     '人身损害赔偿项目': 'PIC',
+                     '财产损失赔偿项目': 'PLC',
+                     '保险类别': 'INS',
+                     '抗辩事由': 'DEF',
+                     '违反道路交通信号灯': 'VTL',
+                     '饮酒后驾驶': 'DAD',
+                     '醉酒驾驶': 'DD',
+                     '超速': 'SPE',
+                     '违法变更车道': 'ICL',
+                     '未取得驾驶资格': 'UD',
+                     '超载': 'OVE',
+                     '不避让行人': 'NAP',
+                     '行人未走人行横道或过街设施': 'NCF',
+                     '其他违法行为': 'OLA'}
 
 
 class DataHelper(object):
@@ -45,7 +46,7 @@ class DataHelper(object):
         self.tokenizer = BertTokenizer.from_pretrained(Config.bert_pretrained_dir, do_lower_case=True)
         self.load_re_tags()
         self.load_ner_tags()
-        self.sentences_hash2ent_tags = None
+        self.iter_data = None
 
     def load_re_tags(self):
         with open(os.path.join(Config.re_data_dir, "rel_labels.txt"), "r", encoding="utf-8") as f:
@@ -66,7 +67,7 @@ class DataHelper(object):
                 self.ent_tag2id[tag] = len(self.ent_tag2id)
         self.id2ent_tag = {id: tag for tag, id in self.ent_tag2id.items()}
 
-        # self.entity_label2tag_id = {entity: idx for idx, (entity, tag) in enumerate(entity_tags.items())}
+        # self.entity_label2abbr_id = {entity: idx for idx, (entity, tag) in enumerate(entity_tags.items())}
 
     def get_re_data(self, data_type):
         """Loads the data for each type in types from data_dir.
@@ -151,52 +152,55 @@ class DataHelper(object):
         data = {"sents": sentences, "ent_tags": tags}
         return data
 
-    def get_sentences_ent_tags(self):
-        sentence2ent_tags = {}
-        for data_type in ["train", "val", "test"]:
-            ner_data = self.get_ner_data(data_type)
-            for s, tag in zip(ner_data["sents"], ner_data["ent_tags"]):
-                sentence2ent_tags[hash(tuple(s))] = tag
-        return sentence2ent_tags
-
     def get_joint_data(self, task, data_type):
-        omit_count = 0
-        if self.sentences_hash2ent_tags is None:
-            self.sentences_hash2ent_tags = self.get_sentences_ent_tags()
-        re_data = self.get_re_data(data_type)
-        joint_data = {'ent_labels': [], 'e1_indices': [], 'e2_indices': [], 'sents': [], 'rel_labels': [],
-                      'ent_tags': [], "pos1": [], "pos2": []}
-        unique_sents_hashs = set()
-        for i, s in enumerate(re_data["sents"]):
-            sent_hash = hash(tuple(s))
-            if task == "ner" and sent_hash in unique_sents_hashs:  # ner 保证任务数据集单一
-                continue
-            try:
-                ent_tag = self.sentences_hash2ent_tags[sent_hash]
-            except:
-                # print(self.tokenizer.convert_ids_to_tokens(s), "\n\n")
-                omit_count += 1
-            else:  # "no error"
-                assert len(ent_tag) == len(s)
-                unique_sents_hashs.add(sent_hash)
-                joint_data["ent_tags"].append(ent_tag)
-                joint_data["ent_labels"].append(re_data["ent_labels"][i])
-                joint_data["e1_indices"].append(re_data["e1_indices"][i])
-                joint_data["e2_indices"].append(re_data["e2_indices"][i])
-                joint_data["pos1"].append(re_data["pos1"][i])
-                joint_data["pos2"].append(re_data["pos2"][i])
-                joint_data["sents"].append(re_data["sents"][i])
-                joint_data["rel_labels"].append(re_data["rel_labels"][i])
-        print("***data_type:{} omit/total: {}/{}".format(data_type, omit_count, len(joint_data["sents"])))
+        joint_data = {'sents': [], 'ent_tags': [], "pos1": [], "pos2": [],
+                      'ent_labels': [], 'e1_indices': [], 'e2_indices': [], 'rel_labels': []
+                      }
+        ner_data = self.get_ner_data(data_type)
+        sentences_hash2ent_tags = {hash(tuple(s)): tag for s, tag in zip(ner_data["sents"], ner_data["ent_tags"])}
+        unique_set = set()
+        re_sample_count = {}
+        for _data_type in ["train", "val", "test"]:
+            re_data = self.get_re_data(_data_type)
+            re_sample_count[_data_type] = len(re_data["sents"])
+            for i, s in enumerate(re_data["sents"]):
+                sent_hash = hash(tuple(s))
+                if sent_hash in sentences_hash2ent_tags:  # 以ner数据集划分为准,在re三种类型数据中挑选sample
+                    if task == "ner" and sent_hash in unique_set:  # ner 句子去重
+                        continue
+                    ent_tag = sentences_hash2ent_tags[sent_hash]
+                    assert len(ent_tag) == len(s)
+                    joint_data["ent_tags"].append(ent_tag)
+                    joint_data["ent_labels"].append(re_data["ent_labels"][i])
+                    joint_data["e1_indices"].append(re_data["e1_indices"][i])
+                    joint_data["e2_indices"].append(re_data["e2_indices"][i])
+                    joint_data["pos1"].append(re_data["pos1"][i])
+                    joint_data["pos2"].append(re_data["pos2"][i])
+                    joint_data["sents"].append(re_data["sents"][i])
+                    joint_data["rel_labels"].append(re_data["rel_labels"][i])
+                    unique_set.add(sent_hash)
+                # else:  # "no error"
+                #     omit_count += 1
+        sample_count = len(joint_data["sents"])
+        if task == "ner":
+            total = len(ner_data["sents"])
+        else:  # task == "re","joint"
+            total = re_sample_count[data_type]
+        print(f"*** {task} data_type:{data_type} sample/total: {sample_count}/{total}, omit:{total - sample_count}")
+        del ner_data, sentences_hash2ent_tags, unique_set
+        gc.collect()
         return joint_data
 
-    def batch_iter(self, data, batch_size, re_type="numpy", _shuffle=True, sequence_len=None):
+    def batch_iter(self, task, data_type, batch_size, re_type="numpy", _shuffle=True, sequence_len=None):
         """
         :param data:  dict
         :param re_type: numpy, torch
         :return:  dict padding & to type
         """
         # one pass over data
+        if self.iter_data is None:
+            self.iter_data = self.get_joint_data(task, data_type)
+        data = self.iter_data
         data_size = len(data["sents"])
         order = list(range(data_size))
         for batch_step in range(data_size // batch_size + 1):
@@ -212,7 +216,6 @@ class DataHelper(object):
             sents = [data['sents'][idx] for idx in batch_idxs]
             rel_labels = [data['rel_labels'][idx] for idx in batch_idxs]
             ent_tags = [data['ent_tags'][idx] for idx in batch_idxs]
-
             # batch size
             # batch_size = len(batch_idxs)
             if sequence_len is None:
@@ -269,16 +272,32 @@ class DataHelper(object):
                 batch_ent_tags = torch.tensor(batch_ent_tags, dtype=torch.long).to(Config.device)
                 batch_fake_labels = torch.tensor(batch_fake_labels, dtype=torch.long).to(Config.device)
                 batch_rel_labels = torch.tensor(batch_rel_labels, dtype=torch.long).to(Config.device)
-
-            batch_data = {'ent_labels': batch_ent_labels,
-                          'e1_masks': batch_e1_masks,
-                          'e2_masks': batch_e2_masks,
-                          'pos1': batch_pos1,
-                          'pos2': batch_pos2,
-                          'sents': batch_sents,
-                          'ent_tags': batch_ent_tags,
-                          'fake_rel_labels': batch_fake_labels,
-                          "rel_labels": batch_rel_labels}
+            assert task in ["ner", "re", "joint"], task
+            if task == "ner":
+                batch_data = {'sents': batch_sents,
+                              'ent_tags': batch_ent_tags,
+                              'pos1': batch_pos1,
+                              'pos2': batch_pos2}
+            elif task == "re":
+                batch_data = {'sents': batch_sents,
+                              'pos1': batch_pos1,
+                              'pos2': batch_pos2,
+                              'ent_labels': batch_ent_labels,
+                              'e1_masks': batch_e1_masks,
+                              'e2_masks': batch_e2_masks,
+                              'fake_rel_labels': batch_fake_labels,
+                              "rel_labels": batch_rel_labels}
+            else:  # tesk=="joint"
+                batch_data = {'sents': batch_sents,
+                              'ent_tags': batch_ent_tags,
+                              'pos1': batch_pos1,
+                              'pos2': batch_pos2,
+                              'ent_labels': batch_ent_labels,
+                              'e1_masks': batch_e1_masks,
+                              'e2_masks': batch_e2_masks,
+                              'fake_rel_labels': batch_fake_labels,
+                              "rel_labels": batch_rel_labels}
+            gc.collect()
             yield batch_data
 
     def get_samples(self, task, data_type):
@@ -287,10 +306,10 @@ class DataHelper(object):
         :param task:  ner,re,joint
         :return:
         """
-        data = self.get_joint_data(task=task, data_type=data_type)
+        data = self.get_joint_data(task, data_type=data_type)
         sample_datas = {'ent_labels': [], 'e1_masks': [], 'e2_masks': [], "pos1": [], "pos2": [],
                         'sents': [], 'ent_tags': [], 'fake_rel_labels': [], "rel_labels": []}
-        for batch_data in self.batch_iter(data, batch_size=Config.batch_size, re_type="numpy",
+        for batch_data in self.batch_iter(task=task, data_type=data_type, batch_size=Config.batch_size, re_type="numpy",
                                           sequence_len=Config.max_sequence_len):
             for key, v in batch_data.items():
                 sample_datas[key].extend(list(v))

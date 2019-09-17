@@ -7,7 +7,7 @@ import torch
 from pytorch_pretrained_bert import BertTokenizer, BertConfig
 
 from config import Config
-from nere.data_helper import entity_label2tag
+from nere.data_helper import entity_label2abbr
 from nere.evaluator import Predictor
 from nere.ner.torch_models import BERTSoftmax, BERTCRF
 
@@ -17,7 +17,7 @@ class EntityRecognition(Predictor):
         super().__init__(framework="torch")
         self.max_len = max_len
         self.idx2tag = self.data_helper.id2ent_tag
-        self.abbr2label = {abbr: label for label, abbr in entity_label2tag.items()}
+        self.abbr2label = {abbr: label for label, abbr in entity_label2abbr.items()}
         self.tokenizer = BertTokenizer.from_pretrained(Config.bert_pretrained_dir, do_lower_case=True)
         self.model = self.load_model(model_name)
 

@@ -172,12 +172,12 @@ class Trainer(BaseTrainer):
             print(_test_log)
             return
         logging.info("{}-{} start train , epoch_nums:{}...".format(self.task, self.model_name, Config.max_epoch_nums))
-        train_data = self.data_helper.get_joint_data(task=self.task, data_type="train")
         loss = self.best_loss
         self.save_best_loss_model(loss)
 
         for epoch_num in trange(1, Config.max_epoch_nums + 1, desc="{} train epoch num".format(self.model_name)):
-            for batch_data in self.data_helper.batch_iter(train_data, batch_size=Config.batch_size, re_type="torch"):
+            for batch_data in self.data_helper.batch_iter(self.task, data_type="train", batch_size=Config.batch_size,
+                                                          re_type="torch"):
                 loss = self.train_step(batch_data)
                 self.backfoward(loss)
                 self.global_step += 1
@@ -239,9 +239,9 @@ class JoinTrainer(Trainer):
 
     def evaluate(self):
         metrics = self.evaluator.test(model=self.model)
-        logging.info("*model:{}, NER acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
+        logging.info("*model:{} valid, NER acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
             self.model_name, *metrics["NER"]))
-        logging.info("*model:{},  RE acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
+        logging.info("*model:{} valid,  RE acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
             self.model_name, *metrics["RE"]))
         ner_f1 = metrics["NER"][-1]
         re_f1 = metrics["RE"][-1]
@@ -289,10 +289,10 @@ class JoinTrainer(Trainer):
             print(_ner_log)
             print(_re_log)
             return
-        train_data = self.data_helper.get_joint_data(task=self.task, data_type="train")
         loss = self.best_loss
         for epoch_num in trange(1, Config.max_epoch_nums + 1, desc="{} train epoch num".format(self.model_name)):
-            for batch_data in self.data_helper.batch_iter(train_data, batch_size=Config.batch_size, re_type="torch"):
+            for batch_data in self.data_helper.batch_iter(self.task, data_type="train",
+                                                          batch_size=Config.batch_size, re_type="torch"):
                 try:
                     loss = self.train_step(batch_data)
                 except Exception as e:

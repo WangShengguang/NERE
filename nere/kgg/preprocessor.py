@@ -1,8 +1,8 @@
 import re
 
-from nere.data_helper import entity_label2tag
+from nere.data_helper import entity_label2abbr
 
-entity_abbr = entity_label2tag  # entity 2 abbrave
+entity_abbr = entity_label2abbr  # entity 2 abbrave
 
 
 class Preprocessing():

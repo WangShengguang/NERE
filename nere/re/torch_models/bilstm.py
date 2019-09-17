@@ -58,7 +58,6 @@ class BiLSTM(nn.Module):
         batch_size = sents.size(0)
         ent_label_features = self.ent_label_embeddings(ent_labels).view(batch_size, -1)
 
-        # embeds = torch.cat((self.word_embeds(sents), self.pos1_embeds(pos1), self.pos2_embeds(pos2)), 2)
         embeds = self.word_embeds(sents)
         embeds = torch.transpose(embeds, 0, 1)
 
@@ -71,7 +70,7 @@ class BiLSTM(nn.Module):
         lstm_out = self.dropout_lstm(lstm_out)
         # import ipdb
         # ipdb.set_trace()
-        all_features = torch.cat((ent_label_features, lstm_out[:,-1,:], e1_features, e2_features), dim=1)
+        all_features = torch.cat((ent_label_features, lstm_out[:, -1, :], e1_features, e2_features), dim=1)
         all_features = self.dropout(all_features)
 
         logits = self.classifier(all_features)
