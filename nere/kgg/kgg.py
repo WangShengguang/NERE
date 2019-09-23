@@ -65,7 +65,7 @@ class KGG(object):
         return list(new_result)
 
 
-def get_triple_result(raw_data=Config.kgg_train_data_dir):
+def get_triple_result(raw_data=Config.kgg_raw_data_dir):
     ner_model = "BERTCRF"
     re_model = "BERTMultitask"
     kgg = KGG(ner_model, re_model)
@@ -89,7 +89,7 @@ def get_triple_result(raw_data=Config.kgg_train_data_dir):
         except KeyboardInterrupt:
             exit(1)
         except Exception as e:
-            logging.info(e)
+            logging.error(e)
             err_file.append(case_file_name)
             long_sentence += 1
             print("句子长度超过512：", case_file_name)
@@ -125,7 +125,7 @@ def gat_cate_ids():
                  '410.txt',
                  '305.txt', '441 (130).txt', '084.txt']
     cate_ids = []
-    for case_file in Path(Config.kgg_train_data_dir).glob("*.txt"):
+    for case_file in Path(Config.kgg_raw_data_dir).glob("*.txt"):
         if case_file.name in file_list:
             continue
         case_file = str(case_file)
@@ -142,8 +142,8 @@ def create_ke_train_data(triples_result_file=Config.triples_result_file):
     :param file_path:
     :return:
     """
-    ent = {}
-    rel = {}
+    entities = {}
+    relations = {}
     fw_tri = open(Config.out_triple_file, 'w')
     ent_idx = 0
     rel_idx = 0
@@ -152,22 +152,24 @@ def create_ke_train_data(triples_result_file=Config.triples_result_file):
             rows = line.strip().split('\t')
             if len(rows) != 3:
                 continue
-            if rows[0] not in ent:
-                ent[rows[0]] = ent_idx
+            if rows[0] not in entities:
+                entities[rows[0]] = ent_idx
                 ent_idx += 1
-            if rows[2] not in ent:
-                ent[rows[2]] = ent_idx
+            if rows[2] not in entities:
+                entities[rows[2]] = ent_idx
                 ent_idx += 1
-            if rows[1] not in rel:
-                rel[rows[1]] = rel_idx
+            if rows[1] not in relations:
+                relations[rows[1]] = rel_idx
                 rel_idx += 1
-            fw_tri.write(f"{ent[rows[0]]}\t{ent[rows[2]]}\t{rel[rows[1]]}\n")
+            fw_tri.write(f"{entities[rows[0]]}\t{entities[rows[2]]}\t{relations[rows[1]]}\n")
     with open(Config.out_entity_vocab, 'w', encoding='utf-8') as fw:
-        for enti in ent.keys():
-            fw.write(f"{enti}\t{ent[enti]}\n")
+        fw.write(f"{len(entities)}\n")
+        for ent, ent_id in entities.items():
+            fw.write(f"{ent}\t{ent_id}\n")
     with open(Config.out_relation_vocab, 'w', encoding='utf-8') as fw:
-        for rela in rel.keys():
-            fw.write(f"{rela}\t{rel[rela]}\n")
+        fw.write(f"{len(relations)}\n")
+        for rel, rel_id in relations.items():
+            fw.write(f"{rel}\t{rel_id}\n")
 
 
 def train2ke(train_file=Config.out_triple_file):
@@ -200,6 +202,6 @@ def train2ke(train_file=Config.out_triple_file):
 
 
 def create_lawdata():
-    get_triple_result(raw_data=Config.kgg_train_data_dir)
+    get_triple_result(raw_data=Config.kgg_raw_data_dir)
     create_ke_train_data(triples_result_file=Config.triples_result_file)
     train2ke(train_file=Config.out_triple_file)

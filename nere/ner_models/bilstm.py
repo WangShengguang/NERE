@@ -24,7 +24,6 @@ class BiLSTM(nn.Module):
         self.dropout = nn.Dropout(0.5)
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None):
-        # embeds = torch.cat((self.word_embeds(sents), self.pos1_embeds(pos1), self.pos2_embeds(pos2)), 2)
         embeds = self.word_embeds(input_ids)
         embeds = torch.transpose(embeds, 0, 1)
 

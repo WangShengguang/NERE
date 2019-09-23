@@ -84,4 +84,5 @@ class ACNN(nn.Module):
             return loss
         else:
             predict = torch.argmin(all_distance, dim=1)
+            # predict = torch.argmax(all_distance, dim=1)
             return predict

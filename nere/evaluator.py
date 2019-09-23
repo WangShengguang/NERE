@@ -6,7 +6,7 @@ from sklearn.metrics import accuracy_score
 
 from config import Config
 from nere.data_helper import DataHelper, entity_label2abbr
-from nere.metrics import MutilabelMetrics
+from nere.utils.metrics import MutilabelMetrics
 
 
 class Predictor(object):
@@ -94,13 +94,18 @@ class Evaluator(Predictor):
         ner_pred_tags, ner_true_tags = [], []
         re_pred_tags, re_true_tags = [], []
         re_type = "torch" if self.framework == "torch" else "numpy"
-        for batch_data in self.data_helper.batch_iter(task=self.task, data_type=self.data_type,
+        for batch_data in self.data_helper.batch_iter(task="ner", data_type=self.data_type,
                                                       batch_size=Config.batch_size,
                                                       re_type=re_type):
             # with torch.no_grad():  # 适用于测试阶段，不需要反向传播
-            ner_logits, re_logits = self.model(batch_data, is_train=False)  # shape: (batch_size, seq_length)
+            ner_logits = self.model(batch_data, is_train=False, mode="ner")  # shape: (batch_size, seq_length)
             ner_pred_tags.extend(ner_logits.tolist())
             ner_true_tags.extend(batch_data["ent_tags"].tolist())
+        for batch_data in self.data_helper.batch_iter(task="re", data_type=self.data_type,
+                                                      batch_size=Config.batch_size,
+                                                      re_type=re_type):
+            # with torch.no_grad():  # 适用于测试阶段，不需要反向传播
+            re_logits = self.model(batch_data, is_train=False, mode="re")  # shape: (batch_size, seq_length)
             re_pred_tags.extend(re_logits.tolist())
             re_true_tags.extend(batch_data["rel_labels"].tolist())
         assert len(ner_pred_tags) == len(ner_true_tags) == len(re_pred_tags) == len(re_true_tags)
@@ -136,10 +141,12 @@ class Evaluator(Predictor):
         return acc, precision, recall, f1
 
     def evaluate_ner(self, batch_y_ent_ids, batch_pred_ent_ids):
-        _pred_tags = [[self.data_helper.id2ent_tag.get(tag_id, "O") for tag_id in line_tags]
-                      for line_tags in batch_y_ent_ids]
         _true_tags = [[self.data_helper.id2ent_tag.get(tag_id, "O") for tag_id in line_tags]
+                      for line_tags in batch_y_ent_ids]
+        _pred_tags = [[self.data_helper.id2ent_tag.get(tag_id, "O") for tag_id in line_tags]
                       for line_tags in batch_pred_ent_ids]
+        import ipdb
+        ipdb.set_trace()
         acc = accuracy_score(sum(_true_tags, []), sum(_pred_tags, []))
         true_entities = self.cellect_entities(_true_tags)
         pred_entities = self.cellect_entities(_pred_tags)

@@ -1,8 +1,8 @@
 from torch import nn
 
 from config import Config
-from nere.ner.torch_models import BERTSoftmax as NerBERTSoftmax, BERTCRF as NerBERTCRF
-from nere.re.torch_models import BERTSoftmax as ReBERTSoftmax, BERTMultitask as ReBERTMultitask
+from nere.ner_models import BERTSoftmax as NerBERTSoftmax, BERTCRF as NerBERTCRF
+from nere.re_models import BERTSoftmax as ReBERTSoftmax, BERTMultitask as ReBERTMultitask
 
 
 class JointNerRe(nn.Module):

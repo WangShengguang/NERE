@@ -80,7 +80,7 @@ class Trainer(BaseTrainer):
         self.data_helper = DataHelper()
 
     def get_re_model(self):
-        from nere.re.torch_models import BERTMultitask, BERTSoftmax, BiLSTM_ATT, ACNN, BiLSTM
+        from nere.re_models import BERTMultitask, BERTSoftmax, BiLSTM_ATT, ACNN, BiLSTM
         vocab_size = len(self.data_helper.tokenizer.vocab)
         num_ent_tags = len(self.data_helper.ent_tag2id)
         num_rel_tags = len(self.data_helper.rel_label2id)
@@ -100,7 +100,7 @@ class Trainer(BaseTrainer):
         return model
 
     def get_ner_model(self):
-        from nere.ner.torch_models import BERTCRF, BiLSTM, BERTSoftmax, BiLSTM_ATT
+        from nere.ner_models import BERTCRF, BiLSTM, BERTSoftmax, BiLSTM_ATT
 
         num_ent_tags = len(self.data_helper.ent_tag2id)
         vocab_size = len(self.data_helper.tokenizer.vocab)

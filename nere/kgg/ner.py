@@ -9,7 +9,8 @@ from pytorch_pretrained_bert import BertTokenizer, BertConfig
 from config import Config
 from nere.data_helper import entity_label2abbr
 from nere.evaluator import Predictor
-from nere.ner.torch_models import BERTSoftmax, BERTCRF
+from nere.ner_models import BERTSoftmax, BERTCRF
+from nere.joint_models import JointNerRe
 
 
 class EntityRecognition(Predictor):

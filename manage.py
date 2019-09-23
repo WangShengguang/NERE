@@ -7,6 +7,8 @@ from nere.utils.hparams import Hparams
 from nere.utils.logger import logging_config
 from nere.utils.tools import Debug
 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
+
 
 def torch_run(task, model_name, mode):
     if model_name == "all":
@@ -32,8 +34,8 @@ def join_run(mode):
     re_model = "BERTMultitask"
     logging_config(f"joint_{mode}.log")
     from nere.torch_trainer import JoinTrainer
-    for transe_rate in [0.4, 0.3, 0.2, 0.1, 0.05, 0.01, 0.001, 0.0001, 0.0001]:
-        for ner_loss_rate in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]:
+    for ner_loss_rate in [0.1, 0.2, 0.6, 0.7, 0.8]:
+        for transe_rate in [0.05, 0.01, 0.001]:
             re_loss_rate = 1 - ner_loss_rate - transe_rate
             if re_loss_rate <= 0:
                 continue
@@ -55,7 +57,7 @@ def run_all(task, mode):
         logging_config(f"ner_all_{mode}.log")
         # torch
         from nere.torch_trainer import Trainer
-        for model_name in ["BiLSTM_ATT", "BERTCRF", "BERTSoftmax"]:
+        for model_name in ["BERTCRF", "BERTSoftmax"]:
             with Debug(prefix=f"torch model:{task} {model_name}"):
                 Trainer(model_name=model_name, task=task, mode=mode).run()
             gc.collect()
@@ -81,8 +83,8 @@ def kgg():
 
 
 Keras_ner_models = ["bilstm", "bilstm_crf"]
-NER_models = ["BERTCRF", "BERTSoftmax", "BiLSTM", "BiLSTM_ATT", "all"] + Keras_ner_models
-RE_models = ["BERTSoftmax", "BERTMultitask", "BiLSTM_ATT", "ACNN", "BiLSTM", "all"]
+NER_models = ["BERTCRF", "BERTSoftmax", "BiLSTM", "all"] + Keras_ner_models  # BiLSTM_ATT
+RE_models = ["BERTSoftmax", "BERTMultitask", "BiLSTM_ATT", "ACNN", "BiLSTM", "a ll"]
 
 
 def main():
@@ -134,9 +136,10 @@ def main():
 if __name__ == '__main__':
     """ 代码执行入口
     examples:
-        python manage.py --ner BERTCRF --mode train  
-        python manage.py --re BERTMultitask --mode train  
-        python manage.py --joint --mode test  
+        python3 manage.py --ner BERTCRF --mode train  
+        python3 manage.py --re BERTMultitask --mode train  
+        python3 manage.py --joint --mode train  
+        nohup python3 manage.py --kgg &>nohup_kgg.out&
     """
 
     main()

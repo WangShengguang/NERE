@@ -1,7 +1,7 @@
 from pytorch_pretrained_bert.modeling import BertPreTrainedModel
 
-from nere.ner.torch_models import BERTSoftmax as NerBERTSoftmax, BERTCRF as NerBERTCRF
-from nere.re.torch_models import BERTSoftmax as ReBERTSoftmax, BERTMultitask as ReBERTMultitask
+from nere.ner_models import BERTSoftmax as NerBERTSoftmax, BERTCRF as NerBERTCRF
+from nere.re_models import BERTSoftmax as ReBERTSoftmax, BERTMultitask as ReBERTMultitask
 
 
 class JointNerRe(BertPreTrainedModel):

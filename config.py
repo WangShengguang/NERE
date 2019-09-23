@@ -38,13 +38,13 @@ class KGGConfig(object):
     kgg_data_dir = os.path.join(DataConfig.data_dir, "kgg")
     kgg_cate_file = os.path.join(kgg_data_dir, "cate_data", "001.txt")
     #
-    kgg_train_data_dir = os.path.join(kgg_data_dir, "data")  # 待抽取数据
+    kgg_raw_data_dir = os.path.join(kgg_data_dir, "data")  # 待抽取数据
     kgg_out_data_dir = os.path.join(kgg_data_dir, "out_data")
     # result file
     result_file = os.path.join(kgg_data_dir, "result.txt")
     triples_result_file = os.path.join(kgg_data_dir, "triples_result.txt")
     # lawdata for ke
-    lawdata_dir = os.path.join(kgg_data_dir, "lawdata")
+    lawdata_dir = os.path.join(kgg_data_dir, "lawdata_new")
     out_entity_vocab = os.path.join(lawdata_dir, 'entity2id.txt')
     out_relation_vocab = os.path.join(lawdata_dir, 'relation2id.txt')
     out_triple_file = os.path.join(lawdata_dir, 'train.txt')
@@ -86,8 +86,8 @@ class BertConfig(object):
 
 
 class TorchConfig(object):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    # device = "cpu"
+    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = "cpu"
     gpu_nums = torch.cuda.device_count()
     multi_gpu = False
 

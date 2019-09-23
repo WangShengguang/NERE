@@ -9,7 +9,7 @@ from pytorch_pretrained_bert import BertTokenizer, BertConfig
 
 from config import Config
 from nere.evaluator import Predictor
-from nere.re.torch_models import BERTMultitask, BERTSoftmax
+from nere.re_models import BERTMultitask, BERTSoftmax
 
 
 def get_nearest_punc(sent_tokens, punc, ent_pos, direction):

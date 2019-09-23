@@ -31,23 +31,28 @@ class Trainer(object):
 
     def get_data(self):
         train_data = self.data_helper.get_samples(task=self.task, data_type="train")
-        valid_data = self.data_helper.get_samples(task=self.task, data_type="val")
+        # valid_data = self.data_helper.get_samples(task=self.task, data_type="val")
         if self.task == "ner":
             x_train, y_train = train_data["sents"], train_data["ent_tags"]
-            x_valid, y_valid = valid_data["sents"], valid_data["ent_tags"]
+            # x_valid, y_valid = valid_data["sents"], valid_data["ent_tags"]
             # if self.model_name == "bilstm":  # time_distributed_1 to have 3 dimensions
             y_train = to_categorical(y_train, num_classes=self.num_classes)
-            y_valid = to_categorical(y_valid, num_classes=self.num_classes)
+            # y_valid = to_categorical(y_valid, num_classes=self.num_classes)
         elif self.task == "re":
             x_train = train_data["sents"], train_data["ent_tags"]
             y_train = train_data["re_labels"]
-            x_valid = valid_data["sents"], valid_data["ent_tags"]
-            y_valid = valid_data["re_labels"]
+            # x_valid = valid_data["sents"], valid_data["ent_tags"]
+            # y_valid = valid_data["re_labels"]
         else:
             raise ValueError(self.task)
+        # test_data = self.data_helper.get_samples(task=self.task, data_type="test")
         del self.data_helper
         gc.collect()
-        return (x_train, y_train), (x_valid, y_valid)
+        # train_set = {hash(tuple(x)) for x in x_train}
+        # valid_set = {hash(tuple(x)) for x in x_valid}
+        # print(len(train_set), len(valid_set), len(train_set & valid_set))
+        # print(f"train:{len(train_data)},valid：{len(valid_data)}, test:{len(test_data)}")
+        return (x_train, y_train)  # , (x_valid, y_valid)
 
     def get_model(self):
         vocab_size = len(self.data_helper.tokenizer.vocab)
@@ -60,7 +65,7 @@ class Trainer(object):
                                                                 "crf_viterbi_accuracy": crf_viterbi_accuracy})
             logging.info("\n*** keras load model :{}".format(self.model_path))
         elif self.task == "ner":
-            from nere.ner.keras_models import get_bilstm, get_bilstm_crf
+            from nere.ner_models.keras_models import get_bilstm, get_bilstm_crf
             get_model = {"bilstm": get_bilstm, "bilstm_crf": get_bilstm_crf}[self.model_name]
             model = get_model(vocab_size=vocab_size, num_classes=self.num_classes)
         # elif self.task == "re":
@@ -82,7 +87,8 @@ class Trainer(object):
             print(_test_log)
             return
         logging.info("***keras train start, model_name : {}".format(self.model_name))
-        (x_train, y_train), (x_valid, y_valid) = self.get_data()
+        # (x_train, y_train), (x_valid, y_valid) = self.get_data()
+        x_train, y_train = self.get_data()
         callbacks = [
             ReduceLROnPlateau(),
             EarlyStopping(patience=Config.patience_num),
@@ -95,7 +101,8 @@ class Trainer(object):
                             batch_size=Config.batch_size,
                             epochs=Config.max_epoch_nums,
                             verbose=1,
-                            validation_data=(x_valid, y_valid),
+                            # validation_data=(x_valid, y_valid),
+                            validation_split=0.1,
                             callbacks=callbacks
                             )
         # plot_history(history)
