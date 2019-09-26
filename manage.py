@@ -57,34 +57,34 @@ def run_all(task, mode):
         logging_config(f"ner_all_{mode}.log")
         # torch
         from nere.torch_trainer import Trainer
-        for model_name in ["BERTCRF", "BERTSoftmax"]:
+        for model_name in NER_models[:-1]:
             with Debug(prefix=f"torch model:{task} {model_name}"):
                 Trainer(model_name=model_name, task=task, mode=mode).run()
             gc.collect()
         # keras
         from nere.keras_trainer import Trainer
-        for model_name in ["bilstm", "bilstm_crf"]:
+        for model_name in Keras_ner_models:
             with Debug(prefix=f"keras model:{task} {model_name}"):
                 Trainer(task="ner", model_name=model_name, mode=mode).run()
             gc.collect()
     elif task == "re":
         logging_config(f"re_all_{mode}.log")
         from nere.torch_trainer import Trainer
-        for model_name in ["BiLSTM_ATT", "ACNN", "BiLSTM", "BERTSoftmax", "BERTMultitask"]:
+        for model_name in RE_models[:-1]:
             with Debug(prefix=f"torch model: {task} {model_name}"):
                 Trainer(model_name=model_name, task=task, mode=mode).run()
             gc.collect()
 
 
-def kgg():
-    logging_config("kgg.log")
-    from nere.kgg.kgg import create_lawdata
-    create_lawdata()
+def kgg(data_set):
+    logging_config("kgg_{}.log".format(data_set))
+    from nere.kgg.kgg import KGG2KE
+    KGG2KE(data_set=data_set).run()
 
 
 Keras_ner_models = ["bilstm", "bilstm_crf"]
 NER_models = ["BERTCRF", "BERTSoftmax", "BiLSTM", "all"] + Keras_ner_models  # BiLSTM_ATT
-RE_models = ["BERTSoftmax", "BERTMultitask", "BiLSTM_ATT", "ACNN", "BiLSTM", "a ll"]
+RE_models = ["BERTSoftmax", "BERTMultitask", "BiLSTM_ATT", "ACNN", "BiLSTM", "all"]
 
 
 def main():
@@ -107,7 +107,8 @@ def main():
                         # required==True if x
                         help="模型训练or测试")
     group.add_argument('--kgg', action="store_true", help="generation of law knowledge graph")
-
+    parser.add_argument('--dataset', type=str, choices=["lawdata_new", "traffic"],
+                        required="--kgg" in sys.argv, help="数据集")
     # parse args
     args = parser.parse_args()
     # mode = "train" if args.train else "test"
@@ -130,13 +131,13 @@ def main():
     elif args.joint:
         join_run(mode=mode)
     elif args.kgg:
-        kgg()
+        kgg(data_set=args.dataset)
 
 
 if __name__ == '__main__':
     """ 代码执行入口
     examples:
-        python3 manage.py --ner BERTCRF --mode train  
+        python3 manage.py --ner BERTCRF --mode train   
         python3 manage.py --re BERTMultitask --mode train  
         python3 manage.py --joint --mode train  
         nohup python3 manage.py --kgg &>nohup_kgg.out&

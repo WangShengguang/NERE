@@ -65,143 +65,116 @@ class KGG(object):
         return list(new_result)
 
 
-def get_triple_result(raw_data=Config.kgg_raw_data_dir):
-    ner_model = "BERTCRF"
-    re_model = "BERTMultitask"
-    kgg = KGG(ner_model, re_model)
-    start_time = time.time()
-    err_file = []
-    long_sentence = 0
-    result = {}
-    triples = set()
-    files = list(Path(raw_data).glob("*.txt"))
-    for case_file in tqdm(files, desc="get_triple_result"):
-        case_file_name = case_file.name
-        # print(case_file)
-        try:
-            flag, case_id, res = kgg.parse(case_file)
-            if flag:
-                result[case_id] = list(res)
-                for tep in res:
-                    triples.add(tep)
-            else:
+class KGG2KE(object):
+    def __init__(self, data_set):
+        self.data_set = data_set
+        self.init_path()
+
+    def init_path(self):
+        self.base_path_dir = Path(Config.data_dir).joinpath(self.data_set)
+        self.cases_triples_result_json_file = Config.cases_triples_result_json_file_tmpl.format(data_set=self.data_set)
+        self.entity2id_path = Config.entity2id_path_tmpl.format(data_set=self.data_set)
+        self.relation2id_path = Config.relation2id_path_tmpl.format(data_set=self.data_set)
+        #
+        self.train_triple_file = Config.train_triple_file_tmpl.format(data_set=self.data_set)
+        self.train2id_file_path = Config.train2id_file_tmpl.format(data_set=self.data_set)
+        self.valid2id_file_path = Config.valid2id_file_tmpl.format(data_set=self.data_set)
+        self.test2id_file_path = Config.test2id_file_tmpl.format(data_set=self.data_set)
+        os.makedirs(os.path.dirname(self.test2id_file_path), exist_ok=True)
+
+    def get_triple_result(self):
+        ner_model = "BERTCRF"
+        re_model = "BERTMultitask"
+        kgg = KGG(ner_model, re_model)
+        start_time = time.time()
+        err_file = []
+        long_sentence = 0
+        triple_result = {}
+        files = list(self.base_path_dir.glob("*.txt"))
+        print("* kgg files count: {}".format(len(files)))
+        for case_file in tqdm(files, desc="kgg get_triple_result"):
+            case_file_name = case_file.name
+            # print(case_file)
+            try:
+                flag, case_id, res = kgg.parse(case_file)
+                if flag:
+                    triple_result[case_id] = list(res)
+                else:
+                    err_file.append(case_file_name)
+            except KeyboardInterrupt:
+                exit(1)
+            except Exception as e:
+                logging.error(e)
                 err_file.append(case_file_name)
-        except KeyboardInterrupt:
-            exit(1)
-        except Exception as e:
-            logging.error(e)
-            err_file.append(case_file_name)
-            long_sentence += 1
-            print("句子长度超过512：", case_file_name)
-    end_time = time.time()
-    print('running time: {}'.format(end_time - start_time))
-    print("case num: {}".format(len(files)))
-    print('Average running time: {}'.format((end_time - start_time) / len(files)))
-    print("不存在案情事实的文件有{}个".format(len(err_file)))
-    print(err_file)
-    print("句子长度超过512：{}".format(long_sentence))
-    with open(Config.result_file, 'w', encoding='utf-8') as f:
-        json.dump(result, f, ensure_ascii=False, indent=4)
-    triples = list(triples)
-    with open(Config.triples_result_file, 'w', encoding='utf-8') as f:
-        for item in triples:
-            if len(item) < 3:
-                continue
-            f.write(f"{item[0]}\t{item[1]}\t{item[2]}\n")
+                long_sentence += 1
+                print("句子长度超过512：", case_file_name)
+        end_time = time.time()
+        print('running time: {}'.format(end_time - start_time))
+        print("case num: {}".format(len(files)))
+        print('Average running time: {}'.format((end_time - start_time) / len(files)))
+        print("不存在案情事实的文件有{}个".format(len(err_file)))
+        print(err_file)
+        print("句子长度超过512：{}".format(long_sentence))
+        with open(self.cases_triples_result_json_file, 'w', encoding='utf-8') as f:
+            json.dump(triple_result, f, ensure_ascii=False, indent=4)
+        return triple_result
 
+    def create_ke_train_data(self):
+        with open(self.cases_triples_result_json_file, 'r', encoding='utf-8') as f:
+            triples = json.load(f)
+        entities = set()
+        relations = set()
+        unique_triples = set()
+        for case_id, case_triples in triples.items():
+            for triple in case_triples:
+                if len(triple) != 3:
+                    print(case_id, triple)
+                    continue
+                entity1, relation, entity2 = triple
+                unique_triples.add((entity1, entity2, relation))
+                entities.add(entity1)
+                entities.add(entity2)
+                relations.add(relation)
+        with open(self.train_triple_file, "w", encoding="utf-8") as f:
+            for entity1, entity2, relation in unique_triples:
+                f.write(f"{entity1}\t{entity2}\t{relation}\n")
+        with open(self.entity2id_path, 'w', encoding='utf-8') as f:
+            f.write(f"{len(entities)}\n")
+            for ent_id, ent in enumerate(entities):
+                f.write(f"{ent}\t{ent_id}\n")
+        with open(self.relation2id_path, 'w', encoding='utf-8') as f:
+            f.write(f"{len(relations)}\n")
+            for rel_id, rel in enumerate(relations):
+                f.write(f"{rel}\t{rel_id}\n")
 
-def gat_cate_ids():
-    file_list = ['311.txt', '376.txt', '105.txt', '271.txt', '441 (80).txt', '089.txt', '360.txt', '441 (248).txt',
-                 '441 (150).txt', '310.txt', '427.txt', '398.txt', '042.txt', '441 (232).txt', '184.txt', '268.txt',
-                 '441 (67).txt', '397.txt', '097.txt', '437.txt', '356.txt', '139.txt', '206.txt', '368.txt', '194.txt',
-                 '101.txt', '078.txt', '441 (96).txt', '353.txt', '441 (163).txt', '441 (88).txt', '264.txt', '109.txt',
-                 '441 (103).txt', '006.txt', '275.txt', '098.txt', '441 (85).txt', '402.txt', '020.txt', '075.txt',
-                 '279.txt', '428.txt', '115.txt', '441 (209).txt', '324.txt', '441 (66).txt', '199.txt', '234.txt',
-                 '002.txt', '090.txt', '186.txt', '441 (131).txt', '441 (254).txt', '441 (64).txt', '009.txt',
-                 '421.txt',
-                 '240.txt', '345.txt', '312.txt', '392.txt', '157.txt', '441 (62).txt', '012.txt', '216.txt',
-                 '441 (57).txt', '201.txt', '158.txt', '441 (253).txt', '143.txt', '132.txt', '441 (176).txt',
-                 '441 (73).txt', '093.txt', '061.txt', '441 (72).txt', '441 (65).txt', '001.txt', '441 (8).txt',
-                 '410.txt',
-                 '305.txt', '441 (130).txt', '084.txt']
-    cate_ids = []
-    for case_file in Path(Config.kgg_raw_data_dir).glob("*.txt"):
-        if case_file.name in file_list:
-            continue
-        case_file = str(case_file)
-        with open(case_file, 'r', encoding='utf-8') as f:
-            id = f.readline().split('\t')[0]
-            cate_ids.append(id)
-            dst_file = os.path.join(Config.kgg_out_data_dir, f"{id}.txt")
-        print(dst_file)
-        # shutil.copyfile(case_file, dst_file)
+    def data_split(self):
+        df = pd.read_csv(self.train_triple_file, header=None, sep="\t")  # train.txt
+        print("df head 5: \n", df.head(5), "\n\ndf tail 5: \n", df.tail(5), "\n")
+        # df = df.sample(frac=1.0)
+        train_size = int(0.6 * df.shape[0])
+        test_size = int(0.2 * df.shape[0])
+        valid_size = df.shape[0] - train_size - test_size
 
+        print("train_size: ", train_size, "\ntest_size: ", test_size, "\nvalid_size: ", valid_size, "\n")
 
-def create_ke_train_data(triples_result_file=Config.triples_result_file):
-    """
-    :param file_path:
-    :return:
-    """
-    entities = {}
-    relations = {}
-    fw_tri = open(Config.out_triple_file, 'w')
-    ent_idx = 0
-    rel_idx = 0
-    with open(triples_result_file, 'r', encoding='utf-8') as f:
-        for line in f:
-            rows = line.strip().split('\t')
-            if len(rows) != 3:
-                continue
-            if rows[0] not in entities:
-                entities[rows[0]] = ent_idx
-                ent_idx += 1
-            if rows[2] not in entities:
-                entities[rows[2]] = ent_idx
-                ent_idx += 1
-            if rows[1] not in relations:
-                relations[rows[1]] = rel_idx
-                rel_idx += 1
-            fw_tri.write(f"{entities[rows[0]]}\t{entities[rows[2]]}\t{relations[rows[1]]}\n")
-    with open(Config.out_entity_vocab, 'w', encoding='utf-8') as fw:
-        fw.write(f"{len(entities)}\n")
-        for ent, ent_id in entities.items():
-            fw.write(f"{ent}\t{ent_id}\n")
-    with open(Config.out_relation_vocab, 'w', encoding='utf-8') as fw:
-        fw.write(f"{len(relations)}\n")
-        for rel, rel_id in relations.items():
-            fw.write(f"{rel}\t{rel_id}\n")
+        train_df = df.loc[: train_size - 1]
+        test_df = df.loc[train_size: train_size + test_size - 1]
+        valid_df = df.loc[train_size + test_size: train_size + test_size + valid_size - 1]
 
+        with open(self.train2id_file_path, "w") as f_train:
+            f_train.write(str(train_size) + "\n")
 
-def train2ke(train_file=Config.out_triple_file):
-    df = pd.read_csv(train_file, header=None, sep="\t")  # train.txt
-    print("df head 5: \n", df.head(5), "\n\ndf tail 5: \n", df.tail(5), "\n")
-    # df = df.sample(frac=1.0)
+        with open(self.test2id_file_path, "w") as f_test:
+            f_test.write(str(test_size) + "\n")
 
-    train_size = int(0.6 * df.shape[0])
-    test_size = int(0.2 * df.shape[0])
-    valid_size = df.shape[0] - train_size - test_size
+        with open(self.valid2id_file_path, "w") as f_valid:
+            f_valid.write(str(valid_size) + "\n")
 
-    print("train_size: ", train_size, "\ntest_size: ", test_size, "\nvalid_size: ", valid_size, "\n")
+        train_df.to_csv(self.train2id_file_path, header=None, sep='\t', index=False, mode='a')
+        test_df.to_csv(self.test2id_file_path, header=None, sep='\t', index=False, mode='a')
+        valid_df.to_csv(self.valid2id_file_path, header=None, sep='\t', index=False, mode='a')
 
-    train_df = df.loc[: train_size - 1]
-    test_df = df.loc[train_size: train_size + test_size - 1]
-    valid_df = df.loc[train_size + test_size: train_size + test_size + valid_size - 1]
-
-    with open(Config.train2id_file, "w") as f_train:
-        f_train.write(str(train_size) + "\n")
-
-    with open(Config.test2id_file, "w") as f_test:
-        f_test.write(str(test_size) + "\n")
-
-    with open(Config.valid2id_file, "w") as f_valid:
-        f_valid.write(str(valid_size) + "\n")
-
-    train_df.to_csv(Config.train2id_file, header=None, sep='\t', index=False, mode='a')
-    test_df.to_csv(Config.test2id_file, header=None, sep='\t', index=False, mode='a')
-    valid_df.to_csv(Config.valid2id_file, header=None, sep='\t', index=False, mode='a')
-
-
-def create_lawdata():
-    get_triple_result(raw_data=Config.kgg_raw_data_dir)
-    create_ke_train_data(triples_result_file=Config.triples_result_file)
-    train2ke(train_file=Config.out_triple_file)
+    def run(self):
+        self.get_triple_result()
+        self.create_ke_train_data()
+        self.data_split()

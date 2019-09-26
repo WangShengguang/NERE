@@ -10,7 +10,6 @@ from config import Config
 from nere.data_helper import entity_label2abbr
 from nere.evaluator import Predictor
 from nere.ner_models import BERTSoftmax, BERTCRF
-from nere.joint_models import JointNerRe
 
 
 class EntityRecognition(Predictor):

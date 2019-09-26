@@ -7,6 +7,7 @@ from sklearn.metrics import accuracy_score
 from config import Config
 from nere.data_helper import DataHelper, entity_label2abbr
 from nere.utils.metrics import MutilabelMetrics
+from tqdm import tqdm
 
 
 class Predictor(object):
@@ -112,6 +113,7 @@ class Evaluator(Predictor):
         metrics = {}
         metrics["NER"] = self.evaluate_ner(ner_true_tags, ner_pred_tags)  # cc, precision, recall, f1
         metrics["RE"] = self.re_metrics.get_metrics_1d(re_true_tags, re_pred_tags)
+
         return metrics
 
     def test_ner(self):
@@ -145,8 +147,6 @@ class Evaluator(Predictor):
                       for line_tags in batch_y_ent_ids]
         _pred_tags = [[self.data_helper.id2ent_tag.get(tag_id, "O") for tag_id in line_tags]
                       for line_tags in batch_pred_ent_ids]
-        import ipdb
-        ipdb.set_trace()
         acc = accuracy_score(sum(_true_tags, []), sum(_pred_tags, []))
         true_entities = self.cellect_entities(_true_tags)
         pred_entities = self.cellect_entities(_pred_tags)

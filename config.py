@@ -8,8 +8,8 @@ __all__ = ["Config"]
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = cur_dir
-
-model_ckpt_dir = os.path.join(root_dir, "model_ckpt")
+data_dir = os.path.join(root_dir, "data")
+output_dir = os.path.join(root_dir, "output")
 
 # random seed
 rand_seed = 1234
@@ -22,36 +22,38 @@ class DataConfig(object):
     """
         数据和模型所在文件夹
     """
-    data_dir = os.path.join(root_dir, "data")
+    data_dir = data_dir
+    # input
     ner_data_dir = os.path.join(data_dir, "ner")
     re_data_dir = os.path.join(data_dir, "re")
-    # checkpoint
-    tf_ckpt_dir = os.path.join(model_ckpt_dir, "tf")
-    torch_ckpt_dir = os.path.join(model_ckpt_dir, "torch")
-    keras_ckpt_dir = os.path.join(model_ckpt_dir, "keras")
+    # output
+    tf_ckpt_dir = os.path.join(output_dir, "tf_ckpt")
+    torch_ckpt_dir = os.path.join(output_dir, "torch_ckpt")
+    keras_ckpt_dir = os.path.join(output_dir, "keras_ckpt")
+    for _dir in [torch_ckpt_dir, keras_ckpt_dir, tf_ckpt_dir]:
+        os.makedirs(_dir, exist_ok=True)
     # pretrain model
-    bert_pretrained_dir = os.path.join(model_ckpt_dir, "bert-base-chinese-pytorch")
+    bert_pretrained_dir = os.path.join(data_dir, "bert-base-chinese-pytorch")
     bert_config_path = os.path.join(bert_pretrained_dir, 'bert_config.json')
 
 
 class KGGConfig(object):
-    kgg_data_dir = os.path.join(DataConfig.data_dir, "kgg")
-    kgg_cate_file = os.path.join(kgg_data_dir, "cate_data", "001.txt")
+    # kgg_cate_file = os.path.join(kgg_data_dir, "cate_data", "001.txt")
     #
-    kgg_raw_data_dir = os.path.join(kgg_data_dir, "data")  # 待抽取数据
-    kgg_out_data_dir = os.path.join(kgg_data_dir, "out_data")
+    # kgg_raw_data_dir = os.path.join(kgg_data_dir, "data")  # 待抽取数据 # 裁判文书来源->ner->re->triple->ke->rank
+    # kgg_raw_data_dir = os.path.join(os.path.dirname(os.path.dirname(root_dir)), "traffic500")  # 待抽取数据
+    # out file dir
+    kgg_out_data_dir = os.path.join(output_dir, "{data_set}", "kgg")
     # result file
-    result_file = os.path.join(kgg_data_dir, "result.txt")
-    triples_result_file = os.path.join(kgg_data_dir, "triples_result.txt")
+    cases_triples_result_json_file_tmpl = os.path.join(kgg_out_data_dir, "cases_triples_result.json")  # 案由对应triple
     # lawdata for ke
-    lawdata_dir = os.path.join(kgg_data_dir, "lawdata_new")
-    out_entity_vocab = os.path.join(lawdata_dir, 'entity2id.txt')
-    out_relation_vocab = os.path.join(lawdata_dir, 'relation2id.txt')
-    out_triple_file = os.path.join(lawdata_dir, 'train.txt')
+    entity2id_path_tmpl = os.path.join(kgg_out_data_dir, 'entity2id.txt')
+    relation2id_path_tmpl = os.path.join(kgg_out_data_dir, 'relation2id.txt')
+    train_triple_file_tmpl = os.path.join(kgg_out_data_dir, 'train.txt')
     # KE train file
-    train2id_file = os.path.join(lawdata_dir, "train2id.txt")
-    valid2id_file = os.path.join(lawdata_dir, "valid2id.txt")
-    test2id_file = os.path.join(lawdata_dir, "test2id.txt")
+    train2id_file_tmpl = os.path.join(kgg_out_data_dir, "train2id.txt")
+    valid2id_file_tmpl = os.path.join(kgg_out_data_dir, "valid2id.txt")
+    test2id_file_tmpl = os.path.join(kgg_out_data_dir, "test2id.txt")
 
 
 class TrainConfig(object):
@@ -104,8 +106,3 @@ class TfConfig(object):
 
 class Config(DataConfig, TorchConfig, BertConfig, TrainConfig, EvaluateConfig, KGGConfig):
     pass
-
-
-for _dir in [DataConfig.torch_ckpt_dir, DataConfig.keras_ckpt_dir, DataConfig.tf_ckpt_dir,
-             KGGConfig.lawdata_dir]:
-    os.makedirs(_dir, exist_ok=True)

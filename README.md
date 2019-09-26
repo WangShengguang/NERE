@@ -29,9 +29,6 @@ bilstm_crf test acc: 0.9923, precision: 0.9741, recall: 0.9650, f1: 0.9665
 |ACNN|0.1300|0.0944|0.2079|0.1134|
 
 
-
-  
-
 ### 联合训练 
 模型：BERTCRF+BERTMultitask+TransE
 
@@ -163,3 +160,20 @@ train 9420
 
 NER, train: 3684,valid: 1962,test: 1962
 RE, train: 11100,valid: 1043,test: 1042
+
+
+
+NER&RE -> 生成数据集三元组（模拟线上环境） -> KE 
+用已训练的数据来测试 
+
+2019 10万文书
+500 裁判文书 -》 测一遍 kgg
+
+SimilarRanking 推荐系统
+导出编码，A_TransE_embedding.json ，作为输入，运行的result.json。
+推荐10篇最相近的文章（10个算法）
+
+500抽10,每篇10个算法，每个算法10篇==1000篇; 每个推荐10个
+
+KE 1000篇和原始数据 
+

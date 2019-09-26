@@ -46,9 +46,8 @@ class Debug(object):
     用上下文管理器计时; 行内调试等
     '''
 
-    def __init__(self, prefix="", into_ipdb=False):
+    def __init__(self, prefix=""):
         self.prefix = prefix
-        self.into_ipdb = into_ipdb
 
     def __enter__(self):
         self.t1 = time.time()
@@ -64,14 +63,11 @@ class Debug(object):
             error_log = traceback.format_exc()
             print(error_log)
             logging.error(error_log)
-            if self.into_ipdb:
-                import ipdb
-                ipdb.set_trace()
             return self
 
 
 if __name__ == "__main__":
-    with Debug("hello", into_ipdb=False) as g:
+    with Debug("hello") as g:
         print("*** g.runtime: {}".format(getattr(g, "runtime", "")))
         time.sleep(2)
         aaa = 1
@@ -79,7 +75,7 @@ if __name__ == "__main__":
         # print(g.t1)
         # raise ValueError(0)
     print("--" * 50)
-    g = Debug("hello", into_ipdb=True)
+    g = Debug("hello")
     with g:
         time.sleep(3)
         bbb = 2

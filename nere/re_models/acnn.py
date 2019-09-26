@@ -1,6 +1,5 @@
 import torch
 import torch.nn.functional as F
-from keras.utils import to_categorical
 from torch import nn
 
 from config import Config
