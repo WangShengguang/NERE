@@ -1,8 +1,10 @@
 import os
 import random
 import re
+from pathlib import Path
 
 import intervals as I
+from pytorch_pretrained_bert import BertTokenizer
 
 from config import Config
 
@@ -51,8 +53,7 @@ pattern_blank = re.compile('[ \t]')
 
 def prepare_data():
     ent_label_pairs = {}  # {e1_label: [e2_1_label, e2_2_label]}
-    predefined_file = os.path.join(Config.annotation_data_dir, 'predefined_lables.txt')
-    with open(predefined_file, 'r') as reader:
+    with open(Config.predefined_file, 'r') as reader:
         for line in reader:
             splits = line.strip().split(' ')
             if len(splits) < 3:
@@ -64,30 +65,20 @@ def prepare_data():
                 continue
             if label in filters:
                 continue
-
             if e1_label not in ent_label_pairs:
                 ent_label_pairs[e1_label] = [e2_label]
             elif e2_label not in ent_label_pairs[e1_label]:
                 ent_label_pairs[e1_label].append(e2_label)
     # print('entity_label_pairs: {}'.format(entity_label_pairs))
-    tasks = os.listdir(Config.annotation_data_dir)
-    task_dirs = [os.path.join(Config.annotation_data_dir, task) for task in tasks]
-    task_dirs = filter(lambda x: os.path.isdir(x), task_dirs)
-    txt_files = []  # txt file path
     # relation statistics
     statistics = {}  # Statistics based on `.ann` file
-    case_num = 0
-    for task_dir in task_dirs:
-        files = os.listdir(task_dir)
-        file_paths = [os.path.join(task_dir, file) for file in files]
-        txt_files.extend(list(filter(lambda x: os.path.isfile(x) and x.endswith('.txt'), file_paths)))
-    txt_files.sort()
     dataset = []  # for doc-level
-    for txt_file in txt_files:
-        case_num += 1
-        ann_file = txt_file[:-3] + 'ann'
+    for ann_file in Path(Config.annotation_data_dir).rglob("*.ann"):
+        txt_file = str(ann_file.with_suffix('.txt'))
         # data obtained from a case file, including negative examples
-        data = get_data(txt_file, ann_file, ent_label_pairs, statistics)
+        data_li = get_data(txt_file, ann_file, ent_label_pairs, statistics)
+        data = ["\t".join((rel_label, e1_label, e2_label, e1, e2, sent_text))
+                for (rel_label, e1_label, e2_label, e1, e2, sent_text) in data_li]
         dataset.append(data)
 
     order = list(range(len(dataset)))
@@ -99,7 +90,7 @@ def prepare_data():
     write_to_file(os.path.join(Config.re_data_dir, 'train.txt'), train_dataset)
     write_to_file(os.path.join(Config.re_data_dir, 'val.txt'), val_dataset)
     write_to_file(os.path.join(Config.re_data_dir, 'test.txt'), test_dataset)
-
+    case_num = len(dataset)
     return case_num, statistics
 
 
@@ -108,7 +99,7 @@ def get_data(txt_file, ann_file, entity_label_pairs, statistics):
     # Get annotated entities
     triples = {}  # ((e1_label, e1_pos1, e1_pos2), (e2_label, e2_pos1, e2_pos2)) -> relation_label
     entities = {}  # ID -> (label, pos1, pos2)
-    with open(ann_file, 'r') as reader_ann:
+    with open(ann_file, 'r', encoding="utf-8") as reader_ann:
         for line in reader_ann:
             line = line.strip()
             if line.startswith('T'):
@@ -122,7 +113,7 @@ def get_data(txt_file, ann_file, entity_label_pairs, statistics):
                 label = temp[0]
                 if label not in filters:
                     entities[ID] = (label, pos1, pos2)  # T2 -> (自然人主体, 35, 38)
-    with open(ann_file, 'r') as reader_ann:
+    with open(ann_file, 'r', encoding="utf-8") as reader_ann:
         for line in reader_ann:
             line = line.strip()
             if line.startswith('R'):
@@ -169,20 +160,18 @@ def get_data(txt_file, ann_file, entity_label_pairs, statistics):
             distance_statistics['(500-)'] += 1
 
     sent_pos_list = []
-    txt_text = ''
-    with open(txt_file, 'r') as reader_txt:
+    case_text = ""
+    with open(txt_file, 'r', encoding="utf-8") as f:
         sent_start = 0
-        for line in reader_txt:
-            txt_text += line
+        for line in f:
+            case_text += line
             sent_end = sent_start + len(line)
-            if line.endswith('\n'):
-                sent_pos_list.append((sent_start, sent_end - 1))  # closed loop []
+            sent_pos_list.append((sent_start, sent_end - 1))  # closed loop []
             sent_start = sent_end
-
     data_list = []
     for sent_pos in sent_pos_list:
         sent_start, sent_end = sent_pos[0], sent_pos[1]
-        sent_text = txt_text[sent_start:sent_end]
+        sent_text = case_text[sent_start:sent_end]
         sent_length = len(sent_text)
         if sent_length <= MIN_LEN:
             continue
@@ -211,7 +200,10 @@ def get_data(txt_file, ann_file, entity_label_pairs, statistics):
             e1_interval = I.closedopen(e1_start, e1_end)
             e2_interval = I.closedopen(e2_start, e2_end)
             if e1_interval in sent_interval and e2_interval in sent_interval:
-                e1, e2 = txt_text[e1_start:e1_end], txt_text[e2_start:e2_end]
+                e1, e2 = case_text[e1_start:e1_end], case_text[e2_start:e2_end]
+                # if "9167轻型厢式货车" in e1 + e2 or "×号/人民保" in e1 + e2: TODO Debug(wsg,标注问题)
+                #     import ipdb
+                #     ipdb.set_trace()
                 if e1 not in entity_dict:
                     entity_dict[e1] = e1_label
                 if e2 not in entity_dict:
@@ -244,8 +236,7 @@ def get_data(txt_file, ann_file, entity_label_pairs, statistics):
 
                 rel_label = triples[triple]
                 if sent_length <= MAX_LEN:
-                    data = '{}\t{}\t{}\t{}\t{}\t{}'.format(rel_label, e1_label, e2_label, e1, e2,
-                                                           sent_text)  # sentence features
+                    data = (rel_label, e1_label, e2_label, e1, e2, sent_text)  # sentence features
                     if data not in data_list:
                         data_list.append(data)
                 else:
@@ -253,10 +244,9 @@ def get_data(txt_file, ann_file, entity_label_pairs, statistics):
                     span = get_gold_triple_span(sent_text, (e1_start - sent_start, e1_end - sent_start),
                                                 (e2_start - sent_start, e2_end - sent_start))
                     if len(span) > MIN_LEN:
-                        data = '{}\t{}\t{}\t{}\t{}\t{}'.format(rel_label, e1_label, e2_label, e1, e2, span)
+                        data = (rel_label, e1_label, e2_label, e1, e2, span)
                         if data not in data_list:
                             data_list.append(data)
-
         # Negative sampling
         for e1 in entity_dict:
             e1_label = entity_dict[e1]
@@ -304,15 +294,16 @@ def get_data(txt_file, ann_file, entity_label_pairs, statistics):
                 rel_label = OTHER_LABER  # Other relation label
                 data = None
                 if sent_length <= MAX_LEN:
-                    data = '{}\t{}\t{}\t{}\t{}\t{}'.format(rel_label, e1_label, e2_label, e1, e2, sent_text)
+                    data = (rel_label, e1_label, e2_label, e1, e2, sent_text)
                 else:
                     span = get_negative_triple_span(sent_text, e1, e2)
 
                     if len(span) > MIN_LEN:
-                        data = '{}\t{}\t{}\t{}\t{}\t{}'.format(rel_label, e1_label, e2_label, e1, e2, span)
+                        data = (rel_label, e1_label, e2_label, e1, e2, span)
                 if data is not None and random.random() >= 0.5:
                     if data not in data_list:
                         data_list.append(data)
+
     return data_list
 
 

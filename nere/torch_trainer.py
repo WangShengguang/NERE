@@ -96,7 +96,7 @@ class Trainer(BaseTrainer):
             model = ACNN(vocab_size, num_ent_tags, num_rel_tags, Config.ent_emb_dim,
                          Config.max_sequence_len)
         else:
-            raise ValueError("Unknown model, must be one of 'BERTSoftmax'/'BERTMultitask'")
+            raise ValueError("Unknown RE model {}".format(self.model_name))
         return model
 
     def get_ner_model(self):
@@ -114,7 +114,7 @@ class Trainer(BaseTrainer):
         elif self.model_name == "BiLSTM_ATT":
             model = BiLSTM_ATT(vocab_size, num_ent_tags)
         else:
-            raise ValueError("Unknown model, must be one of 'BERTSoftmax'/'BERTMultitask'")
+            raise ValueError("Unknown NER model {}".format(self.model_name))
         return model
 
     def get_model(self):
@@ -135,21 +135,21 @@ class Trainer(BaseTrainer):
             torch.save(self.model.state_dict(), self.model_path)
             self.best_loss = loss
 
-    # def evaluate(self):
-    #     # with torch.no_grad():  # 适用于测试阶段，不需要反向传播
-    #     acc, precision, recall, f1 = self.evaluator.test(model=self.model)
-    #     logging.info("acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
-    #         acc, precision, recall, f1))
-    #     if f1 > self.best_val_f1:
-    #         torch.save(self.model.state_dict(), self.model_path)
-    #         logging.info("** - Found new best F1 ,save to model_path: {}".format(self.model_path))
-    #         if f1 - self.best_val_f1 < Config.patience:
-    #             self.patience_counter += 1
-    #         else:
-    #             self.patience_counter = 0
-    #         self.best_val_f1 = f1
-    #     else:
-    #         self.patience_counter += 1
+    def evaluate_save(self):
+        # with torch.no_grad():  # 适用于测试阶段，不需要反向传播
+        acc, precision, recall, f1 = self.evaluator.test(model=self.model)
+        logging.info("acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
+            acc, precision, recall, f1))
+        if f1 > self.best_val_f1:
+            torch.save(self.model.state_dict(), self.model_path)
+            logging.info("** - Found new best F1 ,save to model_path: {}".format(self.model_path))
+            if f1 - self.best_val_f1 < Config.patience:
+                self.patience_counter += 1
+            else:
+                self.patience_counter = 0
+            self.best_val_f1 = f1
+        else:
+            self.patience_counter += 1
 
     def train_step(self, batch_data):
         if self.task == "ner":
@@ -175,7 +175,8 @@ class Trainer(BaseTrainer):
         loss = self.best_loss
         self.save_best_loss_model(loss)
 
-        for epoch_num in trange(1, Config.max_epoch_nums + 1, desc="{} train epoch num".format(self.model_name)):
+        for epoch_num in trange(1, Config.max_epoch_nums + 1,
+                                desc="{} {} train epoch num".format(self.task, self.model_name)):
             for batch_data in self.data_helper.batch_iter(self.task, data_type="train", batch_size=Config.batch_size,
                                                           re_type="torch"):
                 loss = self.train_step(batch_data)
@@ -186,7 +187,7 @@ class Trainer(BaseTrainer):
                     logging.info("* global_step:{} loss: {:.4f}".format(self.global_step, loss.item()))
                     # print("* global_step:{} loss: {:.4f}".format(self.global_step, loss.item()))
                     self.save_best_loss_model(loss)
-            self.save_best_loss_model(loss)
+            self.evaluate_save()
             logging.info("epoch_num: {} end .".format(epoch_num))
             # Early stopping and logging best f1
             if self.patience_counter >= Config.patience_num and epoch_num > Config.min_epoch_nums:
@@ -237,7 +238,7 @@ class JoinTrainer(Trainer):
         self.init_model(model)
         return model
 
-    def evaluate(self):
+    def evaluate_save(self):
         metrics = self.evaluator.test(model=self.model)
         logging.info("*model:{} valid, NER acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
             self.model_name, *metrics["NER"]))
@@ -274,7 +275,7 @@ class JoinTrainer(Trainer):
         return loss
 
     def run(self):
-        _log_str = "*{} {} start ...".format(self.model_name, self.mode)
+        _log_str = "* {} {} start ...".format(self.model_name, self.mode)
         logging.info(_log_str)
         print(_log_str)
         self.model = self.get_model()
@@ -289,15 +290,14 @@ class JoinTrainer(Trainer):
             print(_ner_log)
             print(_re_log)
             return
-        loss = self.best_loss
-        for epoch_num in trange(1, Config.max_epoch_nums + 1, desc="{} train epoch num".format(self.model_name)):
+        for epoch_num in trange(1, Config.max_epoch_nums + 1,
+                                desc="{} {} train epoch num".format(self.task, self.model_name)):
             for batch_data in self.data_helper.batch_iter(self.task, data_type="train",
                                                           batch_size=Config.batch_size, re_type="torch"):
                 try:
                     loss = self.train_step(batch_data)
                 except Exception as e:
                     logging.error(e)
-                    # logging.error(traceback.format_exc())
                     gc.collect()
                     continue
                 self.backfoward(loss)
@@ -306,8 +306,8 @@ class JoinTrainer(Trainer):
                 if self.global_step % Config.check_step == 0:
                     logging.info("* global_step:{} loss: {:.4f}".format(self.global_step, loss.item()))
                     self.save_best_loss_model(loss)
-            self.save_best_loss_model(loss)
-            self.evaluate()
+            # self.save_best_loss_model(loss)
+            self.evaluate_save()
             logging.info("epoch_num: {} end .".format(epoch_num))
             # Early stopping and logging best f1
             if self.patience_counter >= Config.patience_num and epoch_num > Config.min_epoch_nums:

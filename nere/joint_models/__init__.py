@@ -1,3 +1,3 @@
-from .join_model import JointNerRe
+from .joint_model import JointNerRe
 
 __all__ = ["JointNerRe"]

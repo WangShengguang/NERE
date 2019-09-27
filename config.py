@@ -20,11 +20,13 @@ np.random.seed(rand_seed)
 
 class PreprocessConfig(object):
     annotation_data_dir = os.path.join(data_dir, "raw_data", "annotation")
-
+    predefined_file = os.path.join(annotation_data_dir, 'predefined_lables.txt')
     # output as  model input
     # input
     ner_data_dir = os.path.join(data_dir, "ner")
     re_data_dir = os.path.join(data_dir, "re")
+    joint_ner_data_dir = os.path.join(data_dir, "joint", "ner")
+    joint_re_data_dir = os.path.join(data_dir, "joint", "re")
     # pretrain model
     bert_pretrained_dir = os.path.join(data_dir, "bert-base-chinese-pytorch")
     bert_config_path = os.path.join(bert_pretrained_dir, 'bert_config.json')
@@ -65,7 +67,7 @@ class KGGConfig(object):
 class TrainConfig(object):
     # sample data
     max_sequence_len = 400
-    batch_size = 8
+    batch_size = 4  # joint memory out
     # train params
     ent_emb_dim = 128
     rel_emb_dim = 768
@@ -94,8 +96,8 @@ class BertConfig(object):
 
 
 class TorchConfig(object):
-    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    device = "cpu"
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # device = "cpu"
     gpu_nums = torch.cuda.device_count()
     multi_gpu = False
 

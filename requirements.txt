@@ -10,3 +10,5 @@ matplotlib
 python-intervals
 tqdm
 pandas
+ipdb
+ipython

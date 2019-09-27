@@ -32,7 +32,7 @@ def keras_run(task, model_name, mode):
 def join_run(mode):
     ner_model = "BERTCRF"
     re_model = "BERTMultitask"
-    logging_config(f"joint_{mode}.log")
+    logging_config("joint_{}.log".format(mode))
     from nere.torch_trainer import JoinTrainer
     for ner_loss_rate in [0.1, 0.2, 0.6, 0.7, 0.8]:
         for transe_rate in [0.05, 0.01, 0.001]:
@@ -57,7 +57,7 @@ def run_all(task, mode):
         logging_config(f"ner_all_{mode}.log")
         # torch
         from nere.torch_trainer import Trainer
-        for model_name in NER_models[:-1]:
+        for model_name in torch_ner_models:
             with Debug(prefix=f"torch model:{task} {model_name}"):
                 Trainer(model_name=model_name, task=task, mode=mode).run()
             gc.collect()
@@ -70,7 +70,7 @@ def run_all(task, mode):
     elif task == "re":
         logging_config(f"re_all_{mode}.log")
         from nere.torch_trainer import Trainer
-        for model_name in RE_models[:-1]:
+        for model_name in RE_models:
             with Debug(prefix=f"torch model: {task} {model_name}"):
                 Trainer(model_name=model_name, task=task, mode=mode).run()
             gc.collect()
@@ -83,22 +83,28 @@ def kgg(data_set):
 
 
 def data_prepare(task):
-    logging_config("()_data_prepare.log".format(task))
-    from nere.data_preparation.prepare_ner import create_ner_data
-    from nere.data_preparation.prepare_re import create_re_data
-    if task == "ner":
-        create_ner_data()
-    elif task == "re":
-        create_re_data()
-    elif task == "all":
-        create_ner_data()
-        print("\n\n")
-        create_re_data()
+    logging_config("{}_data_prepare.log".format(task))
+    # from nere.data_preparation.prepare_ner import create_ner_data  #标注有误，绝不可用之；使用现有标注好的数据
+    # from nere.data_preparation.prepare_re import create_re_data
+    from nere.data_preparation.prepare_joint import create_joint_data
+    if task == "joint":
+        # create_ner_data()
+        # print("\n\n")
+        # create_re_data()
+        # print("\n\n")
+        create_joint_data()
+    # elif task == "ner":
+    #     create_ner_data()
+    # elif task == "re":
+    #     create_re_data()
+    else:
+        raise ValueError(task)
 
 
 Keras_ner_models = ["bilstm", "bilstm_crf"]
-NER_models = ["BERTCRF", "BERTSoftmax", "BiLSTM", "all"] + Keras_ner_models  # BiLSTM_ATT
-RE_models = ["BERTSoftmax", "BERTMultitask", "BiLSTM_ATT", "ACNN", "BiLSTM", "all"]
+torch_ner_models = ["BERTCRF", "BERTSoftmax", "BiLSTM"]  # BiLSTM_ATT
+NER_models = torch_ner_models + Keras_ner_models
+RE_models = ["BERTSoftmax", "BERTMultitask", "BiLSTM_ATT", "ACNN", "BiLSTM"]
 
 
 def main():
@@ -113,8 +119,8 @@ def main():
     # mode_group.add_argument('--train', action="store_true", help="模型训练")
     # mode_group.add_argument('--test', action="store_true", help="模型测试")
     # 函数名参数
-    group.add_argument('--ner', type=str, choices=NER_models, help="Named Entity Recognition，实体识别")
-    group.add_argument('--re', type=str, choices=RE_models, help="Relation Extraction，关系抽取")
+    group.add_argument('--ner', type=str, choices=NER_models + ["all"], help="Named Entity Recognition，实体识别")
+    group.add_argument('--re', type=str, choices=RE_models + ["all"], help="Relation Extraction，关系抽取")
     group.add_argument('--joint', action="store_true", help="联合训练，load pretrain 的模式")
     parser.add_argument('--mode', type=str, choices=["train", "test"],
                         required=bool({"--ner", "--re", "--joint"} & set(sys.argv)),
@@ -122,7 +128,7 @@ def main():
     group.add_argument('--kgg', action="store_true", help="generation of law knowledge graph")
     parser.add_argument('--dataset', type=str, choices=["lawdata_new", "traffic"],
                         required="--kgg" in sys.argv, help="数据集")
-    group.add_argument('--data_prepare', choices=["ner", "re", "all"], help="数据预处理")
+    group.add_argument('--data_prepare', choices=["ner", "re", "joint"], help="数据预处理")
     # parse args
     args = parser.parse_args()
     # mode = "train" if args.train else "test"
@@ -153,7 +159,7 @@ def main():
 if __name__ == '__main__':
     """ 代码执行入口
     examples:
-        python3 manage.py --data_prepare all    
+        python3 manage.py --data_prepare joint 
         python3 manage.py --ner BERTCRF --mode train   
         python3 manage.py --re BERTMultitask --mode train  
         python3 manage.py --joint --mode train  

@@ -101,9 +101,8 @@ class RelationExtraction(Predictor):
         return results
 
     def load_ent_label_pairs(self):
-        predefined_file = os.path.join(Config.torch_ckpt_dir, "re", 'predefined.txt')
         ent_label_pairs = {}  # {e1_label: [e21_label, e21_label]}
-        with open(predefined_file, 'r', encoding='utf-8') as reader:
+        with open(Config.predefined_file, 'r', encoding='utf-8') as reader:
             for line in reader:
                 splits = line.strip().split(' ')
                 if len(splits) < 3:

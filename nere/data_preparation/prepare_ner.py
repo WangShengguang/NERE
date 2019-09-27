@@ -4,7 +4,7 @@ import re
 
 import intervals as I
 from pytorch_pretrained_bert import BertTokenizer
-
+from pathlib import Path
 from config import Config
 
 entity_label2abbr = {'自然人主体': 'NP',
@@ -30,6 +30,7 @@ entity_label2abbr = {'自然人主体': 'NP',
                      '行人未走人行横道或过街设施': 'NCF',
                      '其他违法行为': 'OLA'
                      }
+
 # filters = ['抗辩事由', '违反道路交通信号灯', '饮酒后驾驶', '醉酒驾驶', '超速', '违法变更车道', '未取得驾驶资格', '超载', '不避让行人', '行人未走人行横道或过街设施', '其他违法行为']
 filters = ['抗辩事由', '其他违法行为']
 
@@ -46,7 +47,7 @@ class PrepareNer(object):
         """Get a piece of data from a annotated file"""
         # Get annotated entity dict
         entities = {}
-        with open(ann_file, 'r') as reader_ann:
+        with open(ann_file, 'r', encoding="utf-8") as reader_ann:
             for line in reader_ann:
                 line = line.strip()
                 if line.startswith('T'):
@@ -60,7 +61,6 @@ class PrepareNer(object):
                         statistics[ent_label] = 0
                     else:
                         statistics[ent_label] += 1
-
                     # Cross line annotation, example:  T49   其他违法行为 1320 1372;1374 1417
                     if ent not in entities and ent_label not in filters:
                         entities[ent] = ent_label
@@ -94,7 +94,7 @@ class PrepareNer(object):
         return sents, tags
 
     def get_fact(self, txt_file):
-        with open(txt_file, 'r') as reader_txt:
+        with open(txt_file, 'r', encoding="utf-8") as reader_txt:
             txt_text = reader_txt.read()
         facts = txt_text.split('\n')  # fact list
         new_facts = []  # The length of the segmentation fragment for each long sentence, no more than 2
@@ -165,19 +165,11 @@ class PrepareNer(object):
 def prepare_data():
     """Data processing and data partitioning"""
     prapare_ner = PrepareNer()
-    tasks = os.listdir(Config.annotation_data_dir)
-    task_dirs = [os.path.join(Config.annotation_data_dir, task) for task in tasks]
-    task_dirs = filter(lambda x: os.path.isdir(x), task_dirs)
-
     dataset = []
-    for task_dir in task_dirs:
-        files = os.listdir(task_dir)
-        file_paths = [os.path.join(task_dir, file) for file in files]
-        file_paths = list(filter(lambda x: os.path.isfile(x) and x.endswith('.txt'), file_paths))
-        for file_txt in file_paths:
-            file_ann = file_txt.replace('txt', 'ann')
-            sents, tags = prapare_ner.get_data(file_txt, file_ann)
-            dataset.append((sents, tags))
+    for file_ann in Path(Config.annotation_data_dir).rglob("*.ann"):
+        file_txt = str(file_ann.with_suffix('.txt'))
+        sents, tags = prapare_ner.get_data(file_txt, file_ann)
+        dataset.append((sents, tags))
     print('data size: {}'.format(len(dataset)))
     order = list(range(len(dataset)))
     random.shuffle(order)
