@@ -5,9 +5,9 @@ import numpy as np
 from sklearn.metrics import accuracy_score
 
 from config import Config
-from nere.data_helper import DataHelper, entity_label2abbr
+from nere.data_helper import DataHelper
+from nere.data_preparation.prepare_ner import entity_label2abbr
 from nere.utils.metrics import MutilabelMetrics
-from tqdm import tqdm
 
 
 class Predictor(object):

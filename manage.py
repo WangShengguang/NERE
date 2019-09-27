@@ -82,6 +82,20 @@ def kgg(data_set):
     KGG2KE(data_set=data_set).run()
 
 
+def data_prepare(task):
+    logging_config("()_data_prepare.log".format(task))
+    from nere.data_preparation.prepare_ner import create_ner_data
+    from nere.data_preparation.prepare_re import create_re_data
+    if task == "ner":
+        create_ner_data()
+    elif task == "re":
+        create_re_data()
+    elif task == "all":
+        create_ner_data()
+        print("\n\n")
+        create_re_data()
+
+
 Keras_ner_models = ["bilstm", "bilstm_crf"]
 NER_models = ["BERTCRF", "BERTSoftmax", "BiLSTM", "all"] + Keras_ner_models  # BiLSTM_ATT
 RE_models = ["BERTSoftmax", "BERTMultitask", "BiLSTM_ATT", "ACNN", "BiLSTM", "all"]
@@ -103,12 +117,12 @@ def main():
     group.add_argument('--re', type=str, choices=RE_models, help="Relation Extraction，关系抽取")
     group.add_argument('--joint', action="store_true", help="联合训练，load pretrain 的模式")
     parser.add_argument('--mode', type=str, choices=["train", "test"],
-                        required="--ner" in sys.argv or "--re" in sys.argv or "--joint" in sys.argv,
-                        # required==True if x
+                        required=bool({"--ner", "--re", "--joint"} & set(sys.argv)),
                         help="模型训练or测试")
     group.add_argument('--kgg', action="store_true", help="generation of law knowledge graph")
     parser.add_argument('--dataset', type=str, choices=["lawdata_new", "traffic"],
                         required="--kgg" in sys.argv, help="数据集")
+    group.add_argument('--data_prepare', choices=["ner", "re", "all"], help="数据预处理")
     # parse args
     args = parser.parse_args()
     # mode = "train" if args.train else "test"
@@ -132,11 +146,14 @@ def main():
         join_run(mode=mode)
     elif args.kgg:
         kgg(data_set=args.dataset)
+    elif args.data_prepare:
+        data_prepare(args.data_prepare)
 
 
 if __name__ == '__main__':
     """ 代码执行入口
     examples:
+        python3 manage.py --data_prepare all    
         python3 manage.py --ner BERTCRF --mode train   
         python3 manage.py --re BERTMultitask --mode train  
         python3 manage.py --joint --mode train  

@@ -18,23 +18,29 @@ random.seed(rand_seed)
 np.random.seed(rand_seed)
 
 
-class DataConfig(object):
+class PreprocessConfig(object):
+    annotation_data_dir = os.path.join(data_dir, "raw_data", "annotation")
+
+    # output as  model input
+    # input
+    ner_data_dir = os.path.join(data_dir, "ner")
+    re_data_dir = os.path.join(data_dir, "re")
+    # pretrain model
+    bert_pretrained_dir = os.path.join(data_dir, "bert-base-chinese-pytorch")
+    bert_config_path = os.path.join(bert_pretrained_dir, 'bert_config.json')
+
+
+class DataConfig(PreprocessConfig):
     """
         数据和模型所在文件夹
     """
     data_dir = data_dir
-    # input
-    ner_data_dir = os.path.join(data_dir, "ner")
-    re_data_dir = os.path.join(data_dir, "re")
     # output
     tf_ckpt_dir = os.path.join(output_dir, "tf_ckpt")
     torch_ckpt_dir = os.path.join(output_dir, "torch_ckpt")
     keras_ckpt_dir = os.path.join(output_dir, "keras_ckpt")
     for _dir in [torch_ckpt_dir, keras_ckpt_dir, tf_ckpt_dir]:
         os.makedirs(_dir, exist_ok=True)
-    # pretrain model
-    bert_pretrained_dir = os.path.join(data_dir, "bert-base-chinese-pytorch")
-    bert_config_path = os.path.join(bert_pretrained_dir, 'bert_config.json')
 
 
 class KGGConfig(object):

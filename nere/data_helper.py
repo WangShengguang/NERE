@@ -9,33 +9,11 @@ from pytorch_pretrained_bert import BertTokenizer
 
 from config import Config
 
-entity_label2abbr = {'自然人主体': 'NP',
-                     '非自然人主体': 'NNP',
-                     '机动车': 'MV',
-                     '非机动车': 'NMV',
-                     '责任认定': 'DUT',
-                     '一般人身损害': 'GI',
-                     '伤残': 'DIS',
-                     '死亡': 'DEA',
-                     '人身损害赔偿项目': 'PIC',
-                     '财产损失赔偿项目': 'PLC',
-                     '保险类别': 'INS',
-                     '抗辩事由': 'DEF',
-                     '违反道路交通信号灯': 'VTL',
-                     '饮酒后驾驶': 'DAD',
-                     '醉酒驾驶': 'DD',
-                     '超速': 'SPE',
-                     '违法变更车道': 'ICL',
-                     '未取得驾驶资格': 'UD',
-                     '超载': 'OVE',
-                     '不避让行人': 'NAP',
-                     '行人未走人行横道或过街设施': 'NCF',
-                     '其他违法行为': 'OLA'}
-
 
 class DataHelper(object):
     """label : 标签体系
         tag： ：样本标注结果
+        因为需要对比单模型和联合训练，所以需要保证单模型的所用数据和联合训练所用数据是相同的
     """
 
     def __init__(self):
@@ -47,7 +25,7 @@ class DataHelper(object):
         self.load_ner_tags()
         # iter data
         self.iter_data = None
-        self.data_type = None
+        self.task_data_type = ""
 
     def load_re_tags(self):
         with open(os.path.join(Config.re_data_dir, "rel_labels.txt"), "r", encoding="utf-8") as f:
@@ -67,7 +45,6 @@ class DataHelper(object):
             if tag not in self.ent_tag2id:
                 self.ent_tag2id[tag] = len(self.ent_tag2id)
         self.id2ent_tag = {id: tag for tag, id in self.ent_tag2id.items()}
-
         # self.entity_label2abbr_id = {entity: idx for idx, (entity, tag) in enumerate(entity_tags.items())}
 
     def get_re_data(self, data_type):
@@ -165,6 +142,12 @@ class DataHelper(object):
         return sentence2ent_tags, train_hash_set
 
     def get_joint_data(self, task, data_type):
+        """
+            验证集暂时不使用
+        :param task:
+        :param data_type:
+        :return:
+        """
         omit_count = 0
         sentences_hash2ent_tags, train_sents_hash = self.get_sentences_ent_tags()
         re_data = self.get_re_data(data_type)
@@ -176,14 +159,10 @@ class DataHelper(object):
             if task == "ner":
                 if sent_hash in unique_sents_hashs:  # ner 保证任务数据集单一
                     continue
-                elif data_type == "test" and sent_hash in train_sents_hash:  # test not in train
+                elif data_type == "test" and sent_hash in train_sents_hash:  # test not in train #todo joint
                     continue
-            try:
+            if sent_hash in sentences_hash2ent_tags:
                 ent_tag = sentences_hash2ent_tags[sent_hash]
-            except:
-                # print(self.tokenizer.convert_ids_to_tokens(s), "\n\n")
-                omit_count += 1
-            else:  # "no error"
                 assert len(ent_tag) == len(s)
                 unique_sents_hashs.add(sent_hash)
                 joint_data["ent_tags"].append(ent_tag)
@@ -194,6 +173,9 @@ class DataHelper(object):
                 joint_data["pos2"].append(re_data["pos2"][i])
                 joint_data["sents"].append(re_data["sents"][i])
                 joint_data["rel_labels"].append(re_data["rel_labels"][i])
+            else:
+                # print(self.tokenizer.convert_ids_to_tokens(s), "\n\n")
+                omit_count += 1
         print("***task {} data_type:{} omit/sample_count: {}/{}".format(task, data_type, omit_count,
                                                                         len(joint_data["sents"])))
         return joint_data
@@ -205,10 +187,10 @@ class DataHelper(object):
         :return:  dict padding & to type
         """
         # one pass over data
-        if self.iter_data is None or self.data_type != data_type:
+        if self.iter_data is None or self.task_data_type != task + data_type:
             self.iter_data = self.get_joint_data(task, data_type)
-            self.data_type = data_type
-        data = self.iter_data
+            self.task_data_type = task + data_type
+        data = self.get_joint_data(task, data_type)
         data_size = len(data["sents"])
         order = list(range(data_size))
         for batch_step in range(data_size // batch_size + 1):
@@ -224,7 +206,6 @@ class DataHelper(object):
             sents = [data['sents'][idx] for idx in batch_idxs]
             rel_labels = [data['rel_labels'][idx] for idx in batch_idxs]
             ent_tags = [data['ent_tags'][idx] for idx in batch_idxs]
-
             # batch size
             # batch_size = len(batch_idxs)
             if sequence_len is None:

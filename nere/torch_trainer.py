@@ -135,21 +135,21 @@ class Trainer(BaseTrainer):
             torch.save(self.model.state_dict(), self.model_path)
             self.best_loss = loss
 
-    def evaluate(self):
-        # with torch.no_grad():  # 适用于测试阶段，不需要反向传播
-        acc, precision, recall, f1 = self.evaluator.test(model=self.model)
-        logging.info("acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
-            acc, precision, recall, f1))
-        if f1 > self.best_val_f1:
-            torch.save(self.model.state_dict(), self.model_path)
-            logging.info("** - Found new best F1 ,save to model_path: {}".format(self.model_path))
-            if f1 - self.best_val_f1 < Config.patience:
-                self.patience_counter += 1
-            else:
-                self.patience_counter = 0
-            self.best_val_f1 = f1
-        else:
-            self.patience_counter += 1
+    # def evaluate(self):
+    #     # with torch.no_grad():  # 适用于测试阶段，不需要反向传播
+    #     acc, precision, recall, f1 = self.evaluator.test(model=self.model)
+    #     logging.info("acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
+    #         acc, precision, recall, f1))
+    #     if f1 > self.best_val_f1:
+    #         torch.save(self.model.state_dict(), self.model_path)
+    #         logging.info("** - Found new best F1 ,save to model_path: {}".format(self.model_path))
+    #         if f1 - self.best_val_f1 < Config.patience:
+    #             self.patience_counter += 1
+    #         else:
+    #             self.patience_counter = 0
+    #         self.best_val_f1 = f1
+    #     else:
+    #         self.patience_counter += 1
 
     def train_step(self, batch_data):
         if self.task == "ner":
