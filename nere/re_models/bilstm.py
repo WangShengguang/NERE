@@ -55,8 +55,7 @@ class BiLSTM(nn.Module):
         e2_masks = batch_data['e2_masks']
         ent_labels = batch_data["ent_labels"]
         # self.hidden = self.init_hidden_lstm()
-        batch_size = sents.shape[0]
-        ent_label_features = self.ent_label_embeddings(ent_labels).view(batch_size, -1)
+        ent_label_features = self.ent_label_embeddings(ent_labels).view(self.batch_size, -1)
         embeds = self.word_embeds(sents)
         embeds = torch.transpose(embeds, 0, 1)
 

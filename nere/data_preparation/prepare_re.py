@@ -4,7 +4,6 @@ import re
 from pathlib import Path
 
 import intervals as I
-from pytorch_pretrained_bert import BertTokenizer
 
 from config import Config
 

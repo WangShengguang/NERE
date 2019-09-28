@@ -31,7 +31,7 @@ class BiLSTM_ATT(nn.Module):
 
         self.att_weight = nn.Parameter(torch.randn(self.batch_size, 1, self.hidden_dim))
 
-        self.classifier = nn.Linear(Config.ent_emb_dim * 2 + self.hidden_dim * 3, num_rel_tags)
+        self.classifier = nn.Linear(self.ent_emb_di * 2 + self.hidden_dim * 3, self.num_rel_tags)
         self.criterion_loss = nn.CrossEntropyLoss(size_average=True)
 
     # def init_hidden(self):

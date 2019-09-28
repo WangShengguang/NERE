@@ -43,6 +43,7 @@ class BERTSoftmax(BertPreTrainedModel):
         self.classifier.weight.data.normal_(mean=0.0, std=0.2)
         self.classifier.bias.data.zero_()
         self.apply(self.init_bert_weights)
+        self.loss_fct = CrossEntropyLoss()
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None):
         # shape: (batch_size, seq_length, hidden_size)
@@ -53,8 +54,7 @@ class BERTSoftmax(BertPreTrainedModel):
         logits = self.classifier(seq_output)
 
         if labels is not None:
-            loss_fct = CrossEntropyLoss()
-            loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
+            loss = self.loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
             return loss
         else:
             _, tag_indices = logits.max(dim=2)  # shape: (batch_size, seq_length)

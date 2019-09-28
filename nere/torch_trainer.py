@@ -134,7 +134,7 @@ class Trainer(BaseTrainer):
         if loss <= self.best_loss:
             torch.save(self.model.state_dict(), self.model_path)
             self.best_loss = loss
-            _log = "loss: {}, save to :{}".format(loss, self.model_path)
+            _log = "loss: {:.4f}, save to :{}".format(loss, self.model_path)
             logging.info(_log)
 
     def evaluate_save(self):
@@ -174,9 +174,6 @@ class Trainer(BaseTrainer):
             print(_test_log)
             return
         logging.info("{}-{} start train , epoch_nums:{}...".format(self.task, self.model_name, Config.max_epoch_nums))
-        loss = self.best_loss
-        self.save_best_loss_model(loss)
-
         for epoch_num in trange(1, Config.max_epoch_nums + 1,
                                 desc="{} {} train epoch num".format(self.task, self.model_name)):
             for batch_data in self.data_helper.batch_iter(self.task, data_type="train", batch_size=Config.batch_size,
@@ -188,7 +185,7 @@ class Trainer(BaseTrainer):
                 if self.global_step % Config.check_step == 0:
                     logging.info("* global_step:{} loss: {:.4f}".format(self.global_step, loss.item()))
                     # print("* global_step:{} loss: {:.4f}".format(self.global_step, loss.item()))
-                    self.save_best_loss_model(loss)
+                    # self.save_best_loss_model(loss)
             self.evaluate_save()
             logging.info("epoch_num: {} end .".format(epoch_num))
             # Early stopping and logging best f1
@@ -307,7 +304,7 @@ class JoinTrainer(Trainer):
                 self.scheduler.step(epoch=epoch_num)  # 更新学习率
                 if self.global_step % Config.check_step == 0:
                     logging.info("* global_step:{} loss: {:.4f}".format(self.global_step, loss.item()))
-                    self.save_best_loss_model(loss)
+                    # self.save_best_loss_model(loss)
             # self.save_best_loss_model(loss)
             self.evaluate_save()
             logging.info("epoch_num: {} end .".format(epoch_num))

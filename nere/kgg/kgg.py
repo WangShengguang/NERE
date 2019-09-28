@@ -2,14 +2,13 @@
 
 import json
 import logging
-import os
 import time
 from pathlib import Path
 
 import pandas as pd
 from tqdm import tqdm
 
-from config import Config
+from config import KGGConfig
 from nere.kgg.neo4j_module import ImportNeo4j
 from nere.kgg.ner import EntityRecognition
 from nere.kgg.preprocessor import Preprocessing
@@ -68,19 +67,7 @@ class KGG(object):
 class KGG2KE(object):
     def __init__(self, data_set):
         self.data_set = data_set
-        self.init_path()
-
-    def init_path(self):
-        self.base_path_dir = Path(Config.data_dir).joinpath(self.data_set)
-        self.cases_triples_result_json_file = Config.cases_triples_result_json_file_tmpl.format(data_set=self.data_set)
-        self.entity2id_path = Config.entity2id_path_tmpl.format(data_set=self.data_set)
-        self.relation2id_path = Config.relation2id_path_tmpl.format(data_set=self.data_set)
-        #
-        self.train_triple_file = Config.train_triple_file_tmpl.format(data_set=self.data_set)
-        self.train2id_file_path = Config.train2id_file_tmpl.format(data_set=self.data_set)
-        self.valid2id_file_path = Config.valid2id_file_tmpl.format(data_set=self.data_set)
-        self.test2id_file_path = Config.test2id_file_tmpl.format(data_set=self.data_set)
-        os.makedirs(os.path.dirname(self.test2id_file_path), exist_ok=True)
+        self.config = KGGConfig(data_set=data_set)
 
     def get_triple_result(self):
         ner_model = "BERTCRF"
@@ -90,7 +77,7 @@ class KGG2KE(object):
         err_file = []
         long_sentence = 0
         triple_result = {}
-        files = list(self.base_path_dir.glob("*.txt"))
+        files = list(Path(self.config.kgg_data_dir).glob("*.txt"))
         print("* kgg files count: {}".format(len(files)))
         for case_file in tqdm(files, desc="kgg get_triple_result"):
             case_file_name = case_file.name
@@ -115,12 +102,12 @@ class KGG2KE(object):
         print("不存在案情事实的文件有{}个".format(len(err_file)))
         print(err_file)
         print("句子长度超过512：{}".format(long_sentence))
-        with open(self.cases_triples_result_json_file, 'w', encoding='utf-8') as f:
+        with open(self.config.cases_triples_result_json_file, 'w', encoding='utf-8') as f:
             json.dump(triple_result, f, ensure_ascii=False, indent=4)
         return triple_result
 
     def create_ke_train_data(self):
-        with open(self.cases_triples_result_json_file, 'r', encoding='utf-8') as f:
+        with open(self.config.cases_triples_result_json_file, 'r', encoding='utf-8') as f:
             triples = json.load(f)
         entities = set()
         relations = set()
@@ -137,20 +124,20 @@ class KGG2KE(object):
                 relations.add(relation)
         entity2id = {ent: ent_id for ent_id, ent in enumerate(entities)}
         relation2id = {rel: rel_id for rel_id, rel in enumerate(relations)}
-        with open(self.train_triple_file, "w", encoding="utf-8") as f:
+        with open(self.config.train_triple_file, "w", encoding="utf-8") as f:
             for entity1, entity2, relation in unique_triples:
                 f.write(f"{entity2id[entity1]}\t{entity2id[entity2]}\t{relation2id[relation]}\n")
-        with open(self.entity2id_path, 'w', encoding='utf-8') as f:
+        with open(self.config.entity2id_path, 'w', encoding='utf-8') as f:
             f.write(f"{len(entity2id)}\n")
             for ent, ent_id in entity2id.items():
                 f.write(f"{ent}\t{ent_id}\n")
-        with open(self.relation2id_path, 'w', encoding='utf-8') as f:
+        with open(self.config.relation2id_path, 'w', encoding='utf-8') as f:
             f.write(f"{len(relation2id)}\n")
             for rel, rel_id in relation2id.items():
                 f.write(f"{rel}\t{rel_id}\n")
 
     def data_split(self):
-        df = pd.read_csv(self.train_triple_file, header=None, sep="\t")  # train.txt
+        df = pd.read_csv(self.config.train_triple_file, header=None, sep="\t")  # train.txt
         print("df head 5: \n", df.head(5), "\n\ndf tail 5: \n", df.tail(5), "\n")
         # df = df.sample(frac=1.0)
         train_size = int(0.6 * df.shape[0])
@@ -163,20 +150,20 @@ class KGG2KE(object):
         test_df = df.loc[train_size: train_size + test_size - 1]
         valid_df = df.loc[train_size + test_size: train_size + test_size + valid_size - 1]
 
-        with open(self.train2id_file_path, "w") as f_train:
+        with open(self.config.train2id_file, "w") as f_train:
             f_train.write(str(train_size) + "\n")
 
-        with open(self.test2id_file_path, "w") as f_test:
+        with open(self.config.test2id_file, "w") as f_test:
             f_test.write(str(test_size) + "\n")
 
-        with open(self.valid2id_file_path, "w") as f_valid:
+        with open(self.config.valid2id_file, "w") as f_valid:
             f_valid.write(str(valid_size) + "\n")
 
-        train_df.to_csv(self.train2id_file_path, header=None, sep='\t', index=False, mode='a')
-        test_df.to_csv(self.test2id_file_path, header=None, sep='\t', index=False, mode='a')
-        valid_df.to_csv(self.valid2id_file_path, header=None, sep='\t', index=False, mode='a')
+        train_df.to_csv(self.config.train2id_file, header=None, sep='\t', index=False, mode='a')
+        test_df.to_csv(self.config.test2id_file, header=None, sep='\t', index=False, mode='a')
+        valid_df.to_csv(self.config.valid2id_file, header=None, sep='\t', index=False, mode='a')
 
     def run(self):
-        # self.get_triple_result()
+        self.get_triple_result()
         self.create_ke_train_data()
         self.data_split()

@@ -10,6 +10,7 @@ class BiLSTM_ATT(nn.Module):
     def __init__(self, vocab_size, num_ent_tags):
         super(BiLSTM_ATT, self).__init__()
         self.batch_size = Config.batch_size
+        self.sequence_len = Config.max_sequence_len
         self.vocab_size = vocab_size
         self.embedding_dim = Config.ent_emb_dim
         self.hidden_dim = 256
@@ -28,7 +29,7 @@ class BiLSTM_ATT(nn.Module):
         self.dropout = nn.Dropout(0.5)
 
         self.att_weight = nn.Parameter(torch.randn(self.batch_size, 1, self.hidden_dim))
-
+        self.classifier = nn.Linear(self.hidden_dim, self.sequence_len).to(Config.device)
         self.criterion_loss = nn.CrossEntropyLoss()
 
     def attention(self, H):
@@ -63,11 +64,8 @@ class BiLSTM_ATT(nn.Module):
         lstm_out = torch.transpose(lstm_out, 0, 1)
         lstm_out = torch.transpose(lstm_out, 1, 2)
         lstm_out = self.dropout_lstm(lstm_out)
-        batch_size = input_ids.shape[0]
-        sequence_len = input_ids.shape[1]
-        att_out = F.tanh(self.attention(lstm_out)).view(batch_size, -1)
+        att_out = F.tanh(self.attention(lstm_out)).view(self.batch_size, -1)
         all_features = self.dropout(att_out)
-        self.classifier = nn.Linear(self.hidden_dim, sequence_len).to(Config.device)
         logits = self.classifier(all_features)
         if labels is None:
             _, label_indices = logits.max(dim=1)

@@ -18,7 +18,7 @@ class DataHelper(object):
         因为需要对比单模型和联合训练，所以需要保证单模型的所用数据和联合训练所用数据是相同的
     """
 
-    def __init__(self, ner_data_dir=Config.joint_ner_data_dir, re_data_dir=Config.joint_re_data_dir):
+    def __init__(self, ner_data_dir=Config.ner_data_dir, re_data_dir=Config.re_data_dir):
         self.ner_data_dir = ner_data_dir
         self.re_data_dir = re_data_dir
         self.load_re_tags()
@@ -153,6 +153,38 @@ class DataHelper(object):
         print("* get_joint_train_data, {}".format(len(joint_data["sents"])))
         return joint_data
 
+    def get_joint_data(self, data_type):
+        """
+            以RE数据为准，NER数据填充之
+        :param data_type:
+        :return:
+        """
+        shash2ent_tag = {}
+        for _data_type in ["train", "val", "test"]:
+            _ner_data = self.get_ner_data(_data_type)
+            for sentence, ent_tag in zip(_ner_data["sents"], _ner_data["ent_tags"]):
+                shash2ent_tag[hash(tuple(sentence))] = ent_tag
+        # joint data
+        omit = 0
+        unique_sents = set()
+        re_data = self.get_re_data(data_type)
+        re_data["ent_tags"] = []
+        hash_sents = [hash(tuple(s)) for s in re_data["sents"]]
+        for i, s_hash in enumerate(hash_sents):
+            if s_hash in shash2ent_tag:
+                re_data["ent_tags"].append(shash2ent_tag[s_hash])
+                unique_sents.add(s_hash)
+            else:
+                for key in re_data:  # 没有ner的数据，不能联合，删除此数据
+                    if key != "ent_tags":
+                        re_data[key].pop(i - omit)
+                omit += 1
+        print("* get_joint_data, {}, omit/all:{}/{}, joint_data/unique_sents: {}/{}".format(
+            data_type, omit, len(hash_sents), len(re_data["sents"]), len(unique_sents)))
+        import ipdb
+        assert len(re_data["sents"]) == len(re_data["ent_tags"]), ipdb.set_trace()
+        return re_data
+
     def batch_iter(self, task, data_type, batch_size, re_type="numpy", _shuffle=True, sequence_len=None):
         """
         :param data:  dict
@@ -161,15 +193,17 @@ class DataHelper(object):
         """
         assert task in ["ner", "re", "joint"] and data_type in ["train", "val", "test"]
         if self.iter_data is None or self.task_data_type != task + data_type:
-            if data_type == "train":  # joint
-                self.iter_data = self.get_joint_train_data()
-            elif task == "ner":
-                self.iter_data = self.get_ner_data(data_type)
-            elif task == "re":
-                self.iter_data = self.get_re_data(data_type)
+            self.iter_data = self.get_joint_data(data_type)
+            # if data_type == "train":  # joint
+            #     self.iter_data = self.get_joint_train_data()
+            # elif task == "ner":
+            #     self.iter_data = self.get_ner_data(data_type)
+            # elif task == "re":
+            #     self.iter_data = self.get_re_data(data_type)
             self.task_data_type = task + data_type
         data = self.iter_data
         data_size = len(data["sents"])
+        max_len = Config.max_sequence_len
         order = list(range(data_size))
         if _shuffle:
             np.random.shuffle(order)
@@ -179,7 +213,7 @@ class DataHelper(object):
             if len(batch_idxs) != batch_size:  # batch size 不可过大; 不足batch_size的数据丢弃（最后一batch）
                 continue
             sents = [data['sents'][idx] for idx in batch_idxs]
-            max_len = sequence_len if sequence_len else min(max([len(s) for s in sents]), Config.max_sequence_len)
+            # max_len = sequence_len if sequence_len else min(max([len(s) for s in sents]), Config.max_sequence_len)
             batch_sents = np.zeros((batch_size, max_len))
 
             for j in range(batch_size):

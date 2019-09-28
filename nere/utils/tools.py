@@ -41,7 +41,7 @@ def todict(obj, classkey=None):
         return obj
 
 
-class Debug(object):
+class GetTime(object):
     '''
     用上下文管理器计时; 行内调试等
     '''
@@ -67,7 +67,7 @@ class Debug(object):
 
 
 if __name__ == "__main__":
-    with Debug("hello") as g:
+    with GetTime("hello") as g:
         print("*** g.runtime: {}".format(getattr(g, "runtime", "")))
         time.sleep(2)
         aaa = 1
@@ -75,7 +75,7 @@ if __name__ == "__main__":
         # print(g.t1)
         # raise ValueError(0)
     print("--" * 50)
-    g = Debug("hello")
+    g = GetTime("hello")
     with g:
         time.sleep(3)
         bbb = 2

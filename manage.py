@@ -5,7 +5,7 @@ import sys
 from nere.utils.gpu_selector import get_available_gpu
 from nere.utils.hparams import Hparams
 from nere.utils.logger import logging_config
-from nere.utils.tools import Debug
+from nere.utils.tools import GetTime
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
 
@@ -58,20 +58,20 @@ def run_all(task, mode):
         # torch
         from nere.torch_trainer import Trainer
         for model_name in torch_ner_models:
-            with Debug(prefix=f"torch model:{task} {model_name}"):
+            with GetTime(prefix=f"torch model:{task} {model_name}"):
                 Trainer(model_name=model_name, task=task, mode=mode).run()
             gc.collect()
         # keras
         from nere.keras_trainer import Trainer
         for model_name in Keras_ner_models:
-            with Debug(prefix=f"keras model:{task} {model_name}"):
+            with GetTime(prefix=f"keras model:{task} {model_name}"):
                 Trainer(task="ner", model_name=model_name, mode=mode).run()
             gc.collect()
     elif task == "re":
         logging_config(f"re_all_{mode}.log")
         from nere.torch_trainer import Trainer
         for model_name in RE_models:
-            with Debug(prefix=f"torch model: {task} {model_name}"):
+            with GetTime(prefix=f"torch model: {task} {model_name}"):
                 Trainer(model_name=model_name, task=task, mode=mode).run()
             gc.collect()
 
