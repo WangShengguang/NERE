@@ -1,6 +1,6 @@
 import re
 
-from nere.data_helper import entity_label2abbr
+from nere.data_preparation.prepare_ner import entity_label2abbr
 
 entity_abbr = entity_label2abbr  # entity 2 abbrave
 
@@ -254,12 +254,3 @@ class Preprocessing():
                 else:
                     temp[i][j] = 0
         return max_len
-
-
-if __name__ == '__main__':
-    case_file = 'data/sample.txt'
-    preprocessing = Preprocessing()
-    case_id, basic_fact, fact_text = preprocessing.process(case_file)
-    print(case_id)
-    print(basic_fact)
-    print(fact_text)

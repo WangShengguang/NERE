@@ -10,6 +10,24 @@ re data_type: train, 11876
 re data_type: test, 944
 re data_type: val, 365
 
+
+-  数据集  
+
+|NER Datasets|Number of Cases|Number of Entities|Number of Relations| 
+|---|---|---|---|
+|Training Set|3315|20|9|
+|Development Set|365|20|9|
+|Test Set|2146|944|9|
+
+---
+
+|RE Datasets|Number of Cases|Number of Entities|Number of Relations| 
+|---|---|---|---|
+|Training Set|11876|20|9|
+|Development Set|2147|20|9|
+|Test Set|2146|20|9|
+
+
 ---
 run 记录  
 2019-09-27 23:34 

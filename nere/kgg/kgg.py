@@ -135,16 +135,18 @@ class KGG2KE(object):
                 entities.add(entity1)
                 entities.add(entity2)
                 relations.add(relation)
+        entity2id = {ent: ent_id for ent_id, ent in enumerate(entities)}
+        relation2id = {rel: rel_id for rel_id, rel in enumerate(relations)}
         with open(self.train_triple_file, "w", encoding="utf-8") as f:
             for entity1, entity2, relation in unique_triples:
-                f.write(f"{entity1}\t{entity2}\t{relation}\n")
+                f.write(f"{entity2id[entity1]}\t{entity2id[entity2]}\t{relation2id[relation]}\n")
         with open(self.entity2id_path, 'w', encoding='utf-8') as f:
-            f.write(f"{len(entities)}\n")
-            for ent_id, ent in enumerate(entities):
+            f.write(f"{len(entity2id)}\n")
+            for ent, ent_id in entity2id.items():
                 f.write(f"{ent}\t{ent_id}\n")
         with open(self.relation2id_path, 'w', encoding='utf-8') as f:
-            f.write(f"{len(relations)}\n")
-            for rel_id, rel in enumerate(relations):
+            f.write(f"{len(relation2id)}\n")
+            for rel, rel_id in relation2id.items():
                 f.write(f"{rel}\t{rel_id}\n")
 
     def data_split(self):
@@ -175,6 +177,6 @@ class KGG2KE(object):
         valid_df.to_csv(self.valid2id_file_path, header=None, sep='\t', index=False, mode='a')
 
     def run(self):
-        self.get_triple_result()
+        # self.get_triple_result()
         self.create_ke_train_data()
         self.data_split()

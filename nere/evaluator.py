@@ -109,11 +109,10 @@ class Evaluator(Predictor):
             re_logits = self.model(batch_data, is_train=False, mode="re")  # shape: (batch_size, seq_length)
             re_pred_tags.extend(re_logits.tolist())
             re_true_tags.extend(batch_data["rel_labels"].tolist())
-        assert len(ner_pred_tags) == len(ner_true_tags) == len(re_pred_tags) == len(re_true_tags)
+        assert len(ner_pred_tags) == len(ner_true_tags) and len(re_pred_tags) == len(re_true_tags)
         metrics = {}
         metrics["NER"] = self.evaluate_ner(ner_true_tags, ner_pred_tags)  # cc, precision, recall, f1
         metrics["RE"] = self.re_metrics.get_metrics_1d(re_true_tags, re_pred_tags)
-
         return metrics
 
     def test_ner(self):

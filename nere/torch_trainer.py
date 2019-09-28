@@ -134,6 +134,8 @@ class Trainer(BaseTrainer):
         if loss <= self.best_loss:
             torch.save(self.model.state_dict(), self.model_path)
             self.best_loss = loss
+            _log = "loss: {}, save to :{}".format(loss, self.model_path)
+            logging.info(_log)
 
     def evaluate_save(self):
         # with torch.no_grad():  # 适用于测试阶段，不需要反向传播

@@ -104,7 +104,7 @@ def data_prepare(task):
 Keras_ner_models = ["bilstm", "bilstm_crf"]
 torch_ner_models = ["BERTCRF", "BERTSoftmax", "BiLSTM"]  # BiLSTM_ATT
 NER_models = torch_ner_models + Keras_ner_models
-RE_models = ["BERTSoftmax", "BERTMultitask", "BiLSTM_ATT", "ACNN", "BiLSTM"]
+RE_models = ["BERTMultitask", "BERTSoftmax", "BiLSTM_ATT", "ACNN", "BiLSTM"]
 
 
 def main():
@@ -114,11 +114,6 @@ def main():
     '''
     parser = Hparams().parser
     group = parser.add_mutually_exclusive_group(required=True)  # 一组互斥参数,且至少需要互斥参数中的一个
-    # mode_group = parser.add_mutually_exclusive_group(
-    #     required=bool(set(["--ner", "--re", "--joint"]) & set(sys.argv)))  # 一组互斥参数,且至少需要互斥参数中的一个
-    # mode_group.add_argument('--train', action="store_true", help="模型训练")
-    # mode_group.add_argument('--test', action="store_true", help="模型测试")
-    # 函数名参数
     group.add_argument('--ner', type=str, choices=NER_models + ["all"], help="Named Entity Recognition，实体识别")
     group.add_argument('--re', type=str, choices=RE_models + ["all"], help="Relation Extraction，关系抽取")
     group.add_argument('--joint', action="store_true", help="联合训练，load pretrain 的模式")
@@ -163,7 +158,7 @@ if __name__ == '__main__':
         python3 manage.py --ner BERTCRF --mode train   
         python3 manage.py --re BERTMultitask --mode train  
         python3 manage.py --joint --mode train  
-        nohup python3 manage.py --kgg &>nohup_kgg.out&
+        nohup python3 manage.py --kgg --dataset traffic &>kgg.out&
     """
 
     main()
