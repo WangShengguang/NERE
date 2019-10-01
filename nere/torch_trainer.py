@@ -289,7 +289,7 @@ class JoinTrainer(Trainer):
             print(_ner_log)
             print(_re_log)
             return
-        for epoch_num in trange(1, Config.max_epoch_nums + 1,
+        for epoch_num in trange(1, Config.max_epoch_nums + 2,
                                 desc="{} {} train epoch num".format(self.task, self.model_name)):
             for batch_data in self.data_helper.batch_iter(self.task, data_type="train",
                                                           batch_size=Config.batch_size, re_type="torch"):

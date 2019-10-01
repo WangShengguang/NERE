@@ -121,7 +121,7 @@ def main():
                         required=bool({"--ner", "--re", "--joint"} & set(sys.argv)),
                         help="模型训练or测试")
     group.add_argument('--kgg', action="store_true", help="generation of law knowledge graph")
-    parser.add_argument('--dataset', type=str, choices=["lawdata_new", "traffic"],
+    parser.add_argument('--dataset', type=str, choices=["lawdata_new", "traffic_all", "traffic_500"],
                         required="--kgg" in sys.argv, help="数据集")
     group.add_argument('--data_prepare', choices=["ner", "re", "joint"], help="数据预处理")
     # parse args
@@ -158,7 +158,7 @@ if __name__ == '__main__':
         python3 manage.py --ner BERTCRF --mode train   
         python3 manage.py --re BERTMultitask --mode train  
         python3 manage.py --joint --mode train  
-        nohup python3 manage.py --kgg --dataset traffic &>kgg.out&
+        nohup python3 manage.py --kgg --dataset traffic_all &>kgg.out&
     """
 
     main()

@@ -1,6 +1,5 @@
 """Automatic generation of law knowledge graph"""
 
-import json
 import logging
 import time
 from pathlib import Path
@@ -33,18 +32,18 @@ class KGG(object):
         """Give a case file and parse it"""
         case_id, basic_fact, fact_text = self.preprocessor.process(case_file)
         if basic_fact == None:
-            print("文件{}不存在案情事实".format(case_file))
+            # print("文件{}不存在案情事实".format(case_file))
             return False, None, None
         ner_result = self.ner.parse(fact_text)  # shit
         re_result = self.re.parse(ner_result)
         # new_result = self.suffer(basic_fact, re_result)
         new_result = create_triple(basic_fact, re_result)
-        print('case_id: {}\n'.format(case_id))
-        print('basic_fact: {}\n'.format(basic_fact))
-        print('fact_text: {}\n'.format(fact_text))
-        print('ner_result: {}\n'.format(ner_result))
-        print('re_result: {}\n'.format(re_result))
-        print('new_result: {}\n'.format(new_result))
+        # print('case_id: {}\n'.format(case_id))
+        # print('basic_fact: {}\n'.format(basic_fact))
+        # print('fact_text: {}\n'.format(fact_text))
+        # print('ner_result: {}\n'.format(ner_result))
+        # print('re_result: {}\n'.format(re_result))
+        # print('new_result: {}\n'.format(new_result))
         return True, case_id, new_result
         # self.neo4j.import_data(basic_fact, new_result)
         # return True
@@ -76,43 +75,64 @@ class KGG2KE(object):
         start_time = time.time()
         err_file = []
         long_sentence = 0
-        triple_result = {}
-        files = list(Path(self.config.kgg_data_dir).glob("*.txt"))
+        # 接着上一次训练断点
+        last_finish_case_id = ""
+        if Path(self.config.cases_triples_txt).is_file():
+            with open(self.config.cases_triples_txt, "r", encoding="utf-8") as f:
+                lines = [line for line in f if line.strip()]
+                if lines:
+                    last_finish_case_id = lines[-1].split("\t")[0]
+        all_files = [str(_file_path) for _file_path in Path(self.config.kgg_data_dir).glob("*.txt")]
+        for i, _file_path in enumerate(all_files):
+            if last_finish_case_id in _file_path:  # 当last_finish_case_id="",第一个既满足条件
+                files = all_files[i:]
+                print("* skip/all_files: {}/{}".format(i, len(all_files)))
+                break
+        else:  # 没有break
+            files = []
+        if not files:
+            raise ValueError("not found files: {}".format(self.config.kgg_data_dir))
         print("* kgg files count: {}".format(len(files)))
-        for case_file in tqdm(files, desc="kgg get_triple_result"):
-            case_file_name = case_file.name
-            # print(case_file)
-            try:
-                flag, case_id, res = kgg.parse(case_file)
-                if flag:
-                    triple_result[case_id] = list(res)
-                else:
-                    err_file.append(case_file_name)
-            except KeyboardInterrupt:
-                exit(1)
-            except Exception as e:
-                logging.error(e)
-                err_file.append(case_file_name)
-                long_sentence += 1
-                print("句子长度超过512：", case_file_name)
+        with open(self.config.cases_triples_txt, "a", encoding="utf-8") as f:
+            for case_file in tqdm(files, desc="kgg get_triple_result"):
+                # case_file_name = case_file.name
+                # print(case_file)
+                # logging.info(case_file)
+                try:
+                    flag, case_id, res = kgg.parse(case_file)
+                    if flag:
+                        f.write("{}\t{}\n".format(case_id, list(res)))
+                        f.flush()
+                except KeyboardInterrupt:
+                    exit(1)
+                except Exception as e:
+                    logging.error(e)
+                    print(e)
+                    # err_file.append(case_file_name)
+                    long_sentence += 1
+                    # print("句子长度超过512：", case_file_name)
+                # else:
+                #     err_file.append(case_file_name)
         end_time = time.time()
         print('running time: {}'.format(end_time - start_time))
         print("case num: {}".format(len(files)))
-        print('Average running time: {}'.format((end_time - start_time) / len(files)))
+        print('Average running time: {}'.format((end_time - start_time) / max(len(files), 1)))
         print("不存在案情事实的文件有{}个".format(len(err_file)))
-        print(err_file)
+        # print(err_file)
         print("句子长度超过512：{}".format(long_sentence))
-        with open(self.config.cases_triples_result_json_file, 'w', encoding='utf-8') as f:
-            json.dump(triple_result, f, ensure_ascii=False, indent=4)
-        return triple_result
 
     def create_ke_train_data(self):
-        with open(self.config.cases_triples_result_json_file, 'r', encoding='utf-8') as f:
-            triples = json.load(f)
+        with open(self.config.cases_triples_txt, "r", encoding="utf-8") as f:
+            triple_result = {}
+            for line in f:
+                case_id, _triples = line.strip().split("\t")
+                _triples_list = eval(_triples)
+                if len(_triples_list) > 5:
+                    triple_result[case_id] = _triples_list
         entities = set()
         relations = set()
         unique_triples = set()
-        for case_id, case_triples in triples.items():
+        for case_id, case_triples in triple_result.items():
             for triple in case_triples:
                 if len(triple) != 3:
                     print(case_id, triple)

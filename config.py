@@ -31,22 +31,25 @@ class PreprocessConfig(object):
     bert_config_path = os.path.join(bert_pretrained_dir, 'bert_config.json')
 
 
+kgg_bak_name = "-copy"
+
+
 class DataConfig(PreprocessConfig):
     """
         数据和模型所在文件夹
     """
     # output
-    tf_ckpt_dir = os.path.join(output_dir, "tf_ckpt")
+    # tf_ckpt_dir = os.path.join(output_dir, "tf_ckpt")
     torch_ckpt_dir = os.path.join(output_dir, "torch_ckpt")
     keras_ckpt_dir = os.path.join(output_dir, "keras_ckpt")
-    for _dir in [torch_ckpt_dir, keras_ckpt_dir, tf_ckpt_dir]:
+    for _dir in [torch_ckpt_dir, keras_ckpt_dir]:
         os.makedirs(_dir, exist_ok=True)
 
 
 class TrainConfig(object):
     # sample data
     max_sequence_len = 400
-    batch_size = 4  # joint memory out
+    batch_size = 8  # joint memory out
     # train params
     ent_emb_dim = 128
     rel_emb_dim = 768
@@ -78,7 +81,7 @@ class TorchConfig(object):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # device = "cpu"
     gpu_nums = torch.cuda.device_count()
-    multi_gpu = False
+    multi_gpu = True
 
 
 class Config(DataConfig, TorchConfig, BertConfig, TrainConfig, EvaluateConfig):
@@ -88,10 +91,10 @@ class Config(DataConfig, TorchConfig, BertConfig, TrainConfig, EvaluateConfig):
 # custom config
 class KGGConfig(object):
     def __init__(self, data_set):
-        self.kgg_data_dir = os.path.join(data_dir, data_set)
-        kgg_out_dir = os.path.join(output_dir, "kgg", data_set)
+        self.kgg_data_dir = os.path.join(data_dir, "kgg", data_set)  # inupt data
+        kgg_out_dir = os.path.join(output_dir, "kgg", data_set)  # output data
         os.makedirs(kgg_out_dir, exist_ok=True)
-        self.cases_triples_result_json_file = os.path.join(kgg_out_dir, "cases_triples_result.json")
+        self.cases_triples_txt = os.path.join(kgg_out_dir, "cases_triples_txt.txt")
         self.entity2id_path = os.path.join(kgg_out_dir, 'entity2id.txt')
         self.relation2id_path = os.path.join(kgg_out_dir, 'relation2id.txt')
         self.train_triple_file = os.path.join(kgg_out_dir, 'train.txt')

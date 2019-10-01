@@ -24,7 +24,7 @@ class ACNN(nn.Module):
         self.dropout = nn.Dropout(0.6)
         self.conv = nn.Conv2d(1, num_filters, (slide_window, self.d), (1, self.d), (self.p, 0), bias=True)
         self.U = nn.Parameter(torch.randn(num_filters, num_rel_tags))
-        self.batch_y_zeros = torch.zeros(Config.batch_size, self.num_rel_tags).to(Config.device)
+        self.batch_y_zeros = torch.zeros(Config.batch_size, self.num_rel_tags)
         self.margin = 1.0
 
     def loss(self, wo_norm, all_distance, in_y):

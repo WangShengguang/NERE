@@ -193,7 +193,10 @@ class DataHelper(object):
         """
         assert task in ["ner", "re", "joint"] and data_type in ["train", "val", "test"]
         if self.iter_data is None or self.task_data_type != task + data_type:
-            self.iter_data = self.get_joint_data(data_type)
+            if task == "ner":
+                self.iter_data = self.get_ner_data(data_type)
+            else:
+                self.iter_data = self.get_joint_data(data_type)
             # if data_type == "train":  # joint
             #     self.iter_data = self.get_joint_train_data()
             # elif task == "ner":

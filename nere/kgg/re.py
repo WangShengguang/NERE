@@ -81,6 +81,9 @@ class RelationExtraction(Predictor):
         # for d, e in data:
         #     print('{}\n{}'.format(''.join(d), e))
         re_data = self.load_data(data)
+        # if len(re_data) > 1000:  # TODO only recore
+        #     re_data = re_data[:10]
+        #     print("* load re_data: {} ...".format(len(re_data)))
         re_sults = self.get_re_results(re_data)
         return re_sults
 

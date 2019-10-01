@@ -11,7 +11,7 @@ embedding_dim = Config.ent_emb_dim
 def get_bilstm(vocab_size, num_classes):
     model = Sequential()
     model.add(Embedding(vocab_size, embedding_dim))
-    model.add(Bidirectional(LSTM(256, dropout=0.2, recurrent_dropout=0.1, return_sequences=True)))
+    model.add(Bidirectional(LSTM(256 // 2, dropout=0.2, recurrent_dropout=0.1, return_sequences=True)))
     model.add(TimeDistributed(Dense(num_classes, activation='softmax')))
     model.compile(optimizer='adam', loss=categorical_crossentropy, metrics=["accuracy"])
     return model

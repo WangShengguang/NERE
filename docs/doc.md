@@ -29,9 +29,26 @@ re data_type: val, 365
 
 
 ---
-run 记录  
-2019-09-27 23:34 
-nohup python3 manage.py --joint --mode train &>joint_train.out&
-nohup python3 manage.py --ner all --mode train &>ner_all_train.out&
-nohup python3 manage.py --re all --mode train &>re_all_train.out&
+201929
 
+NER
+数据集为RE的数据集 
+* model: ner BERTCRF, test acc: 0.9909, precision: 0.9813, recall: 0.9434, f1: 0.9565  
+* model: ner BERTSoftmax, test acc: 0.9966, precision: 0.9834, recall: 0.9740, f1: 0.9760        
+* model: ner BiLSTM, test acc: 0.9882, precision: 0.9618, recall: 0.9369, f1: 0.9431            
+bilstm test acc: 0.9993, precision: 0.9954, recall: 0.9983, f1: 0.9963                           
+bilstm_crf test acc: 0.9147, precision: 0.8065, recall: 0.4195, f1: 0.5376                       
+   
+
+RE
+ model: re BERTMultitask, test acc: 0.9343, precision: 0.9087, recall: 0.9243, f1: 0.9151  
+* model: re BERTSoftmax, test acc: 0.9400, precision: 0.9263, recall: 0.8864, f1: 0.8993
+* model: re BiLSTM_ATT, test acc: 0.8148, precision: 0.7406, recall: 0.6402, f1: 0.6394
+* model: re ACNN, test acc: 0.3509, precision: 0.1579, recall: 0.1886, f1: 0.1520
+* model: re BiLSTM, test acc: 0.8022, precision: 0.6416, recall: 0.5904, f1: 0.5977
+
+## tips
+
+batch_size问题
+
+RE影响不大；NER讲20% f1
