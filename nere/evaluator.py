@@ -2,11 +2,9 @@ import os
 
 import keras
 import numpy as np
-from sklearn.metrics import accuracy_score
 
 from config import Config
 from nere.data_helper import DataHelper
-from nere.data_preparation.prepare_ner import entity_label2abbr
 from nere.utils.metrics import MutilabelMetrics
 
 
@@ -24,7 +22,7 @@ class Predictor(object):
         elif self.framework == "tf":
             model = None
         elif self.framework == "torch":
-            model = None
+            model = None  # torch.load
         else:
             raise ValueError(self.framework)
         return model
@@ -74,7 +72,7 @@ class Evaluator(Predictor):
         self.task = task
         self.data_type = data_type
         # self.ner_metrics = MutilabelMetrics(list(self.data_helper.ent_tag2id.keys()))
-        self.ner_metrics = MutilabelMetrics(list(entity_label2abbr.values()))
+        # self.ner_metrics = MutilabelMetrics(list(entity_label2abbr.values()))
         self.re_metrics = MutilabelMetrics(list(self.data_helper.rel_label2id.keys()))
 
     def test(self, model=None):
@@ -142,15 +140,92 @@ class Evaluator(Predictor):
         return acc, precision, recall, f1
 
     def evaluate_ner(self, batch_y_ent_ids, batch_pred_ent_ids):
+        """
+        :param batch_y_ent_ids:
+        :param batch_pred_ent_ids:
+        :return:
+        """
         _true_tags = [[self.data_helper.id2ent_tag.get(tag_id, "O") for tag_id in line_tags]
                       for line_tags in batch_y_ent_ids]
         _pred_tags = [[self.data_helper.id2ent_tag.get(tag_id, "O") for tag_id in line_tags]
                       for line_tags in batch_pred_ent_ids]
-        acc = accuracy_score(sum(_true_tags, []), sum(_pred_tags, []))
-        true_entities = self.cellect_entities(_true_tags)
-        pred_entities = self.cellect_entities(_pred_tags)
-        precision, recall, f1 = self.ner_metrics.get_metrics(true_entities, pred_entities)
+        # true_tags = sum(_true_tags, [])
+        # pred_tags = sum(_pred_tags, [])
+        acc = accuracy_score(_true_tags, _pred_tags)
+        precision, recall, f1 = f1_score(_true_tags, _pred_tags)
+        # import ipdb
+        # ipdb.set_trace()
         return acc, precision, recall, f1
+
+
+def accuracy_score(y_true, y_pred):
+    """Accuracy classification score.
+
+    In multilabel classification, this function computes subset accuracy:
+    the set of labels predicted for a sample must *exactly* match the
+    corresponding set of labels in y_true.
+
+    Args:
+        y_true : 2d array. Ground truth (correct) target values.
+        y_pred : 2d array. Estimated targets as returned by a tagger.
+
+    Returns:
+        score : float.
+
+    Example:
+        # >>> from seqeval.metrics import accuracy_score
+        >>> y_true = [['O', 'O', 'O', 'B-MISC', 'I-MISC', 'I-MISC', 'O'], ['B-PER', 'I-PER', 'O']]
+        >>> y_pred = [['O', 'O', 'B-MISC', 'I-MISC', 'I-MISC', 'I-MISC', 'O'], ['B-PER', 'I-PER', 'O']]
+        >>> accuracy_score(y_true, y_pred)
+        0.80
+    """
+    if any(isinstance(s, list) for s in y_true):
+        y_true = [item for sublist in y_true for item in sublist]
+        y_pred = [item for sublist in y_pred for item in sublist]
+
+    nb_correct = sum(y_t == y_p for y_t, y_p in zip(y_true, y_pred))
+    nb_true = len(y_true)
+
+    score = nb_correct / nb_true
+
+    return score
+
+
+def f1_score(y_true, y_pred, average='micro', digits=2, suffix=False):
+    """Compute the F1 score.
+
+    The F1 score can be interpreted as a weighted average of the precision and
+    recall, where an F1 score reaches its best value at 1 and worst score at 0.
+    The relative contribution of precision and recall to the F1 score are
+    equal. The formula for the F1 score is::
+
+        F1 = 2 * (precision * recall) / (precision + recall)
+
+    Args:
+        y_true : 2d array. Ground truth (correct) target values.
+        y_pred : 2d array. Estimated targets as returned by a tagger.
+
+    Returns:
+        score : float.
+
+    Example:
+        # >>> from seqeval.metrics import f1_score
+        >>> y_true = [['O', 'O', 'O', 'B-MISC', 'I-MISC', 'I-MISC', 'O'], ['B-PER', 'I-PER', 'O']]
+        >>> y_pred = [['O', 'O', 'B-MISC', 'I-MISC', 'I-MISC', 'I-MISC', 'O'], ['B-PER', 'I-PER', 'O']]
+        >>> f1_score(y_true, y_pred)
+        0.50
+    """
+    true_entities = set(get_entities(y_true, suffix))
+    pred_entities = set(get_entities(y_pred, suffix))
+
+    nb_correct = len(true_entities & pred_entities)
+    nb_pred = len(pred_entities)
+    nb_true = len(true_entities)
+
+    p = nb_correct / nb_pred if nb_pred > 0 else 0
+    r = nb_correct / nb_true if nb_true > 0 else 0
+    f1 = 2 * p * r / (p + r) if p + r > 0 else 0
+    return p, r, f1
 
 
 def get_entities(seq, suffix=False):

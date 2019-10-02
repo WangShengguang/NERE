@@ -31,10 +31,7 @@ class DataHelper(object):
     def load_ner_tags(self):
         with open(os.path.join(self.ner_data_dir, "tags.txt"), "r", encoding="utf-8") as f:
             ent_tags = [line.strip() for line in f.readlines()]
-        self.ent_tag2id = {"O": 0}  # I-NAP、B-NMV、O  ；BIO
-        for tag in ent_tags:
-            if tag not in self.ent_tag2id:
-                self.ent_tag2id[tag] = len(self.ent_tag2id)
+        self.ent_tag2id = {tag: id for id, tag in enumerate(ent_tags)}
         self.id2ent_tag = {id: tag for tag, id in self.ent_tag2id.items()}
         # self.entity_label2abbr_id = {entity: idx for idx, (entity, tag) in enumerate(entity_tags.items())}
 

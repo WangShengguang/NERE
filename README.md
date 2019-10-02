@@ -75,6 +75,14 @@ Automatic generation of law knowledge graph
         Config.kgg_out_dir (output/kgg/dataset)
         三元组，并切分训练集 
 
+
+|数据集|input|output|
+|---|---|---|
+|lawdata|原始标注集|通过NERE后得到|
+|lawdata_new|与lawdata同，避免生成数据覆盖而命名|通过NERE后得到|
+|traffic_all|未标注数据|通过NERE后得到|
+
+
 训练
 ```bash
 python3 manage.py --kgg 

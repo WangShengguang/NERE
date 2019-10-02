@@ -176,6 +176,7 @@ class Trainer(BaseTrainer):
         logging.info("{}-{} start train , epoch_nums:{}...".format(self.task, self.model_name, Config.max_epoch_nums))
         for epoch_num in trange(1, Config.max_epoch_nums + 1,
                                 desc="{} {} train epoch num".format(self.task, self.model_name)):
+            self.model.train()
             for batch_data in self.data_helper.batch_iter(self.task, data_type="train", batch_size=Config.batch_size,
                                                           re_type="torch"):
                 loss = self.train_step(batch_data)
@@ -238,6 +239,7 @@ class JoinTrainer(Trainer):
         return model
 
     def evaluate_save(self):
+        self.model.eval()
         metrics = self.evaluator.test(model=self.model)
         logging.info("*model:{} valid, NER acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
             self.model_name, *metrics["NER"]))
@@ -291,6 +293,7 @@ class JoinTrainer(Trainer):
             return
         for epoch_num in trange(1, Config.max_epoch_nums + 2,
                                 desc="{} {} train epoch num".format(self.task, self.model_name)):
+            self.model.train()
             for batch_data in self.data_helper.batch_iter(self.task, data_type="train",
                                                           batch_size=Config.batch_size, re_type="torch"):
                 try:

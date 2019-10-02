@@ -26,21 +26,6 @@ class MutilabelMetrics(object):
             sample_label_vectors.append(_sample_y.tolist())
         return sample_label_vectors
 
-    def get_metrics(self, batch_y_trues, batch_y_preds):
-        """
-        :param y_trues: list [["label1","label2"],["label1"]] ; compatible id or str label
-        :param y_preds: [["label1","label2"],["label1"]]
-        :return:
-        """
-        average = "samples"
-        labels = None  # self.labels
-        y_true = np.asarray(self.vectorization(batch_y_trues))
-        y_pred = np.asarray(self.vectorization(batch_y_preds))
-        recall = recall_score(y_true, y_pred, labels=labels, average=average)
-        precision = precision_score(y_true, y_pred, labels=labels, average=average)
-        f1 = f1_score(y_true, y_pred, labels=labels, average=average)
-        return precision, recall, f1
-
     def get_metrics_1d(self, y_true, y_pred):
         """
         :param y_trues: list ["label1","label2"] ; compatible id or str label
