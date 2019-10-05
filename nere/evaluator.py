@@ -2,19 +2,20 @@ import os
 
 import keras
 import numpy as np
+from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_score
 
 from config import Config
 from nere.data_helper import DataHelper
-from nere.utils.metrics import MutilabelMetrics
 
 
 class Predictor(object):
-    def __init__(self, framework):
+    def __init__(self, task, model_name, framework, load_model=True):
         self.framework = framework
-        self.model = None
         self.data_helper = DataHelper()
+        if load_model:
+            self.model = self.load_model(task, model_name)
 
-    def __load_model(self, task, model_name):
+    def load_model(self, task, model_name):
         if self.framework == "keras":
             model_path = os.path.join(Config.keras_ckpt_dir, task, model_name)
             assert os.path.isfile(model_path)
@@ -25,7 +26,13 @@ class Predictor(object):
             model = None  # torch.load
         else:
             raise ValueError(self.framework)
+        model.eval()  # 切记，否则有偏差
         return model
+
+    def set_model(self, model):
+        self.model = model
+        if self.framework == "torch":
+            self.model.eval()
 
     def predict_ner(self, batch_data):
         if self.framework == "torch":
@@ -62,63 +69,58 @@ class Predictor(object):
 
 
 class Evaluator(Predictor):
-    def __init__(self, framework, task, data_type="val"):
+    def __init__(self, task, model_name, framework, load_model=True):
         """
         :param framework: torch,tf,keras
         :param task: ner,re,joint
         :param data_type: train,val,test
         """
-        super().__init__(framework)
+        super().__init__(task, model_name, framework, load_model=load_model)
         self.task = task
-        self.data_type = data_type
-        # self.ner_metrics = MutilabelMetrics(list(self.data_helper.ent_tag2id.keys()))
-        # self.ner_metrics = MutilabelMetrics(list(entity_label2abbr.values()))
-        self.re_metrics = MutilabelMetrics(list(self.data_helper.rel_label2id.keys()))
 
-    def test(self, model=None):
-        if isinstance(model, str):
-            model = self.__load_model(self.task, model)
-        self.model = model
+    def test(self, data_type):
+        assert self.model is not None, "please set model before test"
         if self.task == "ner":
-            res = self.test_ner()  # acc, precision, recall, f1
+            res = self.test_ner(data_type)  # acc, precision, recall, f1
         elif self.task == "re":
-            res = self.test_re()
+            res = self.test_re(data_type)
         elif self.task == "joint":
-            res = self.test_joint()
+            res = self.test_joint(data_type)
         else:
             raise ValueError(self.task)
         return res
 
-    def test_joint(self):
+    def test_joint(self, data_type):
         ner_pred_tags, ner_true_tags = [], []
         re_pred_tags, re_true_tags = [], []
         re_type = "torch" if self.framework == "torch" else "numpy"
-        for batch_data in self.data_helper.batch_iter(task="ner", data_type=self.data_type,
-                                                      batch_size=Config.batch_size,
-                                                      re_type=re_type):
+        for batch_data in self.data_helper.batch_iter(task="ner", data_type=data_type,
+                                                      batch_size=Config.test_batch_size,
+                                                      re_type=re_type, _shuffle=False):
             # with torch.no_grad():  # 适用于测试阶段，不需要反向传播
             ner_logits = self.model(batch_data, is_train=False, mode="ner")  # shape: (batch_size, seq_length)
             ner_pred_tags.extend(ner_logits.tolist())
             ner_true_tags.extend(batch_data["ent_tags"].tolist())
-        for batch_data in self.data_helper.batch_iter(task="re", data_type=self.data_type,
-                                                      batch_size=Config.batch_size,
-                                                      re_type=re_type):
+        for batch_data in self.data_helper.batch_iter(task="re", data_type=data_type,
+                                                      batch_size=Config.test_batch_size,
+                                                      re_type=re_type, _shuffle=False):
             # with torch.no_grad():  # 适用于测试阶段，不需要反向传播
             re_logits = self.model(batch_data, is_train=False, mode="re")  # shape: (batch_size, seq_length)
             re_pred_tags.extend(re_logits.tolist())
             re_true_tags.extend(batch_data["rel_labels"].tolist())
         assert len(ner_pred_tags) == len(ner_true_tags) and len(re_pred_tags) == len(re_true_tags)
         metrics = {}
-        metrics["NER"] = self.evaluate_ner(ner_true_tags, ner_pred_tags)  # cc, precision, recall, f1
-        metrics["RE"] = self.re_metrics.get_metrics_1d(re_true_tags, re_pred_tags)
+        metrics["NER"] = self.evaluate_ner(ner_true_tags, ner_pred_tags)  # acc, precision, recall, f1
+        metrics["RE"] = self.get_re_metrics(re_true_tags, re_pred_tags, average="macro")
         return metrics
 
-    def test_ner(self):
+    def test_ner(self, data_type):
         pred_tags = []
         true_tags = []
         re_type = "torch" if self.framework == "torch" else "numpy"
-        for batch_data in self.data_helper.batch_iter(task=self.task, data_type=self.data_type,
-                                                      batch_size=Config.batch_size, re_type=re_type):
+        for batch_data in self.data_helper.batch_iter(task=self.task, data_type=data_type,
+                                                      batch_size=Config.test_batch_size,
+                                                      re_type=re_type, _shuffle=False):
             batch_pred_ids = self.predict_ner(batch_data)  # shape: (batch_size, 1)
             pred_tags.extend(batch_pred_ids.tolist())
             true_tags.extend(batch_data["ent_tags"].tolist())
@@ -126,17 +128,20 @@ class Evaluator(Predictor):
         acc, precision, recall, f1 = self.evaluate_ner(true_tags, pred_tags)
         return acc, precision, recall, f1
 
-    def test_re(self):
+    def test_re(self, data_type):
         pred_tags = []
         true_tags = []
         re_type = "torch" if self.framework == "torch" else "numpy"
-        for batch_data in self.data_helper.batch_iter(task=self.task, data_type=self.data_type,
-                                                      batch_size=Config.batch_size, re_type=re_type):
+        for batch_data in self.data_helper.batch_iter(task=self.task, data_type=data_type,
+                                                      batch_size=Config.test_batch_size,
+                                                      re_type=re_type, _shuffle=False):
             batch_pred_ids = self.predict_re(batch_data)  # shape: (batch_size, 1)
             pred_tags.extend(batch_pred_ids.tolist())
             true_tags.extend(batch_data["rel_labels"].tolist())
         assert len(pred_tags) == len(true_tags)
-        acc, precision, recall, f1 = self.re_metrics.get_metrics_1d(true_tags, pred_tags)
+        acc, precision, recall, f1 = self.get_re_metrics(true_tags, pred_tags, average="macro")
+        import ipdb
+        ipdb.set_trace()
         return acc, precision, recall, f1
 
     def evaluate_ner(self, batch_y_ent_ids, batch_pred_ent_ids):
@@ -151,14 +156,20 @@ class Evaluator(Predictor):
                       for line_tags in batch_pred_ent_ids]
         # true_tags = sum(_true_tags, [])
         # pred_tags = sum(_pred_tags, [])
-        acc = accuracy_score(_true_tags, _pred_tags)
-        precision, recall, f1 = f1_score(_true_tags, _pred_tags)
-        # import ipdb
-        # ipdb.set_trace()
+        acc = ner_accuracy_score(_true_tags, _pred_tags)
+        precision, recall, f1 = ner_f1_score(_true_tags, _pred_tags)
+        return acc, precision, recall, f1
+
+    def get_re_metrics(self, y_true, y_pred, average):
+        metric_labels = self.data_helper.relation_metric_labels
+        acc = accuracy_score(y_true, y_pred)
+        recall = recall_score(y_true, y_pred, labels=metric_labels, average=average)
+        precision = precision_score(y_true, y_pred, labels=metric_labels, average=average)
+        f1 = f1_score(y_true, y_pred, average=average)
         return acc, precision, recall, f1
 
 
-def accuracy_score(y_true, y_pred):
+def ner_accuracy_score(y_true, y_pred):
     """Accuracy classification score.
 
     In multilabel classification, this function computes subset accuracy:
@@ -191,7 +202,7 @@ def accuracy_score(y_true, y_pred):
     return score
 
 
-def f1_score(y_true, y_pred, average='micro', digits=2, suffix=False):
+def ner_f1_score(y_true, y_pred, average='micro', digits=2, suffix=False):
     """Compute the F1 score.
 
     The F1 score can be interpreted as a weighted average of the precision and

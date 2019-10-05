@@ -34,18 +34,10 @@ def join_run(mode):
     re_model = "BERTMultitask"
     logging_config("joint_{}.log".format(mode))
     from nere.torch_trainer import JoinTrainer
-    for ner_loss_rate in [0.1, 0.2, 0.6, 0.7, 0.8]:
-        for transe_rate in [0.05, 0.01, 0.001]:
-            re_loss_rate = 1 - ner_loss_rate - transe_rate
-            if re_loss_rate <= 0:
-                continue
-            if mode == "train":
-                JoinTrainer(task="joint", ner_model=ner_model, re_model=re_model, mode=mode,
-                            ner_loss_rate=ner_loss_rate, re_loss_rate=re_loss_rate, transe_rate=transe_rate).run()
-            # test
-            JoinTrainer(task="joint", ner_model=ner_model, re_model=re_model, mode="test",
-                        ner_loss_rate=ner_loss_rate, re_loss_rate=re_loss_rate, transe_rate=transe_rate).run()
-            gc.collect()
+    if mode == "train":
+        JoinTrainer(task="joint", ner_model=ner_model, re_model=re_model, mode=mode).run()
+    # test
+    JoinTrainer(task="joint", ner_model=ner_model, re_model=re_model, mode="test").run()
 
 
 def run_all(task, mode):

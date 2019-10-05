@@ -48,8 +48,9 @@ class DataConfig(PreprocessConfig):
 
 class TrainConfig(object):
     # sample data
-    max_sequence_len = 400
-    batch_size = 8  # joint memory out
+    max_sequence_len = 402
+    batch_size = 16  # joint memory out  # default 16
+    test_batch_size = 8
     # train params
     ent_emb_dim = 128
     rel_emb_dim = 768
@@ -95,6 +96,7 @@ class KGGConfig(object):
         kgg_out_dir = os.path.join(output_dir, "kgg", data_set)  # output data
         os.makedirs(kgg_out_dir, exist_ok=True)
         self.cases_triples_txt = os.path.join(kgg_out_dir, "cases_triples_txt.txt")
+        self.cases_triples_json = os.path.join(kgg_out_dir, "cases_triples_result.json")  # 案由对应triple
         self.entity2id_path = os.path.join(kgg_out_dir, 'entity2id.txt')
         self.relation2id_path = os.path.join(kgg_out_dir, 'relation2id.txt')
         self.train_triple_file = os.path.join(kgg_out_dir, 'train.txt')

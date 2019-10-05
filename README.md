@@ -88,3 +88,12 @@ Automatic generation of law knowledge graph
 python3 manage.py --kgg 
 ```
 
+
+## tips
+    测试时 
+    test_batch_size必须一致，否则导致batch_seq_len变化，导致指标变化
+    torch测试前必须做
+    model.eval() 
+    --- 
+    源代码RE预处理忘记加+ ["[SEP]"]，效果差一点 ？还有其他因素...
+    

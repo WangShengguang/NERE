@@ -44,6 +44,8 @@ class DataHelper(object):
             self.ent_label2id = {ent_label: id for id, ent_label in enumerate(entity_labels)}
         self.other_rel_label_id = self.rel_label2id['其他'] if '其他' in self.rel_label2id else self.rel_label2id['Other']
         # Other types of relationships do not participate in the assessment
+        self.relation_metric_labels = [rel_id for rel_id in self.rel_label2id.values()
+                                       if rel_id != self.other_rel_label_id]
 
     def get_ner_data(self, data_type):
         """Loads the data for each type in types from data_dir.
@@ -152,7 +154,8 @@ class DataHelper(object):
 
     def get_joint_data(self, data_type):
         """
-            以RE数据为准，NER数据填充之
+            以RE数据为准，NER数据填充之 ;
+            比RE少16 samples - 20191006
         :param data_type:
         :return:
         """
@@ -178,11 +181,10 @@ class DataHelper(object):
                 omit += 1
         print("* get_joint_data, {}, omit/all:{}/{}, joint_data/unique_sents: {}/{}".format(
             data_type, omit, len(hash_sents), len(re_data["sents"]), len(unique_sents)))
-        import ipdb
-        assert len(re_data["sents"]) == len(re_data["ent_tags"]), ipdb.set_trace()
+        assert len(re_data["sents"]) == len(re_data["ent_tags"])
         return re_data
 
-    def batch_iter(self, task, data_type, batch_size, re_type="numpy", _shuffle=True, sequence_len=None):
+    def batch_iter(self, task, data_type, batch_size, re_type="numpy", _shuffle=True, fixed_seq_len=None):
         """
         :param data:  dict
         :param re_type: numpy, torch
@@ -192,7 +194,9 @@ class DataHelper(object):
         if self.iter_data is None or self.task_data_type != task + data_type:
             if task == "ner":
                 self.iter_data = self.get_ner_data(data_type)
-            else:
+            elif task == "re":
+                self.iter_data = self.get_re_data(data_type)
+            else:  # task==joint
                 self.iter_data = self.get_joint_data(data_type)
             # if data_type == "train":  # joint
             #     self.iter_data = self.get_joint_train_data()
@@ -203,7 +207,6 @@ class DataHelper(object):
             self.task_data_type = task + data_type
         data = self.iter_data
         data_size = len(data["sents"])
-        max_len = Config.max_sequence_len
         order = list(range(data_size))
         if _shuffle:
             np.random.shuffle(order)
@@ -213,7 +216,8 @@ class DataHelper(object):
             if len(batch_idxs) != batch_size:  # batch size 不可过大; 不足batch_size的数据丢弃（最后一batch）
                 continue
             sents = [data['sents'][idx] for idx in batch_idxs]
-            # max_len = sequence_len if sequence_len else min(max([len(s) for s in sents]), Config.max_sequence_len)
+            # 动态batch_sequence_len，不使用与baseline对不上；f1下降明显
+            max_len = fixed_seq_len if fixed_seq_len else min(max([len(s) for s in sents]), Config.max_sequence_len)
             batch_sents = np.zeros((batch_size, max_len))
 
             for j in range(batch_size):
@@ -286,7 +290,7 @@ class DataHelper(object):
         """
         sample_datas = defaultdict(list)
         for batch_data in self.batch_iter(task=task, data_type=data_type, batch_size=Config.batch_size,
-                                          re_type="numpy", sequence_len=Config.max_sequence_len):
+                                          re_type="numpy", fixed_seq_len=Config.max_sequence_len):
             for key, v in batch_data.items():
                 sample_datas[key].extend(list(v))
         return {k: np.asarray(data) for k, data in sample_datas.items()}

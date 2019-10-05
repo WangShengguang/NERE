@@ -72,7 +72,7 @@ class Trainer(BaseTrainer):
         self.model_path = os.path.join(self.model_dir, model_name + ".bin")
         os.makedirs(self.model_dir, exist_ok=True)
         # evaluate
-        self.evaluator = Evaluator(framework="torch", task=task, data_type="val")
+        self.evaluator = Evaluator(task, model_name, framework="torch", load_model=False)
         self.best_val_f1 = 0
         self.best_loss = 100000
         self.patience_counter = Config.patience_num
@@ -139,7 +139,8 @@ class Trainer(BaseTrainer):
 
     def evaluate_save(self):
         # with torch.no_grad():  # 适用于测试阶段，不需要反向传播
-        acc, precision, recall, f1 = self.evaluator.test(model=self.model)
+        self.evaluator.set_model(model=self.model)
+        acc, precision, recall, f1 = self.evaluator.test(data_type="val")
         logging.info("acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
             acc, precision, recall, f1))
         if f1 > self.best_val_f1:
@@ -166,8 +167,8 @@ class Trainer(BaseTrainer):
     def run(self):
         self.model = self.get_model()
         if self.mode == "test":
-            acc, precision, recall, f1 = Evaluator(framework="torch", task=self.task, data_type="test").test(
-                model=self.model)
+            self.evaluator.set_model(model=self.model)
+            acc, precision, recall, f1 = self.evaluator.test(data_type="test")
             _test_log = "* model: {} {}, test acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
                 self.task, self.model_name, acc, precision, recall, f1)
             logging.info(_test_log)
@@ -201,6 +202,7 @@ class JoinTrainer(Trainer):
                  ner_loss_rate=0.15, re_loss_rate=0.8, transe_rate=0.05):
         self.model_name = "joint_{:.5}{}_{:.5}{}_{:.5}TransE".format(
             ner_loss_rate, ner_model, re_loss_rate, re_model, transe_rate)
+        self.model_name = "joint_{}_{}".format(ner_model, re_model)
         super().__init__(model_name=self.model_name, task=task)
         self.ner_model = ner_model
         self.re_model = re_model
@@ -219,12 +221,10 @@ class JoinTrainer(Trainer):
         self.data_helper = DataHelper()
         num_ner_tags = len(self.data_helper.ent_tag2id)
         num_re_tags = len(self.data_helper.rel_label2id)
-        # model = nnJointNerRe(ner_model=self.ner_model, re_model=self.re_model,
+        # model = JointNerRe(ner_model=self.ner_model, re_model=self.re_model,
         #                      num_ner_labels=num_ner_tags, num_re_labels=num_re_tags,
         #                      ner_loss_rate=0.1, re_loss_rate=0.8, transe_rate=0.1)
-        model = JointNerRe(ner_model=self.ner_model, re_model=self.re_model,
-                           num_ner_labels=num_ner_tags, num_re_labels=num_re_tags,
-                           ner_loss_rate=0.1, re_loss_rate=0.8, transe_rate=0.1)
+        model = JointNerRe(num_ner_labels=num_ner_tags, num_re_labels=num_re_tags)
         if self.task == "joint":
             if Config.load_pretrain and Path(self.joint_path).is_file():
                 model.load_state_dict(torch.load(self.joint_path))  # 断点续训
@@ -239,8 +239,8 @@ class JoinTrainer(Trainer):
         return model
 
     def evaluate_save(self):
-        self.model.eval()
-        metrics = self.evaluator.test(model=self.model)
+        self.evaluator.set_model(model=self.model)
+        metrics = self.evaluator.test(data_type="val")
         logging.info("*model:{} valid, NER acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
             self.model_name, *metrics["NER"]))
         logging.info("*model:{} valid,  RE acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
@@ -281,7 +281,8 @@ class JoinTrainer(Trainer):
         print(_log_str)
         self.model = self.get_model()
         if self.mode == "test":
-            metrics = Evaluator(framework="torch", task=self.task, data_type="test").test(model=self.model)
+            self.evaluator.set_model(model=self.model)
+            metrics = self.evaluator.test(data_type="test")
             _ner_log = "*{} test NER acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(self.model_name,
                                                                                                         *metrics["NER"])
             _re_log = "*{} test RE acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(self.model_name,
@@ -299,6 +300,8 @@ class JoinTrainer(Trainer):
                 try:
                     loss = self.train_step(batch_data)
                 except Exception as e:
+                    # import traceback
+                    # traceback.print_exc()
                     logging.error(e)
                     gc.collect()
                     continue

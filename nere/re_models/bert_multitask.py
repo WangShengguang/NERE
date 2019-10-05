@@ -67,10 +67,11 @@ class BERTMultitask(BertPreTrainedModel):
             Outputs the classification labels indices of shape (batch_size, seq_length).
     """
 
-    def __init__(self, config, num_labels, ent_num_lables=20, coefficient=1e-5):
+    def __init__(self, config, num_labels, ent_num_lables=20, coefficient=1e-5, mode="re"):
         super(BERTMultitask, self).__init__(config)
         self.num_labels = num_labels  # the number of relation labels
         self.coefficient = coefficient
+        self.mode = mode
         ent_label_dim = 128
         self.ent_label_embeddings = nn.Embedding(ent_num_lables, ent_label_dim)
         self.ent_emb_layer_norm = BertLayerNorm(ent_label_dim * 2, eps=1e-12)
@@ -182,8 +183,11 @@ class BERTMultitask(BertPreTrainedModel):
 
             loss_cls = self.cross_entroy(logits.view(-1, self.num_labels), labels.view(-1))
             loss_transe = self.margin_ranking(pos, neg)
-            loss = loss_cls + loss_transe * self.coefficient
-            return loss
+            if self.mode == "joint":
+                return loss_cls, loss_transe
+            else:
+                loss = loss_cls + loss_transe * self.coefficient
+                return loss
         else:
             _, label_indices = logits.max(dim=1)
             return label_indices

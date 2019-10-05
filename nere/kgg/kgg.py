@@ -1,10 +1,12 @@
 """Automatic generation of law knowledge graph"""
 
+import json
 import logging
 import time
 from pathlib import Path
 
 import pandas as pd
+from sklearn.utils import shuffle
 from tqdm import tqdm
 
 from config import KGGConfig
@@ -144,8 +146,10 @@ class KGG2KE(object):
                 relations.add(relation)
         entity2id = {ent: ent_id for ent_id, ent in enumerate(entities)}
         relation2id = {rel: rel_id for rel_id, rel in enumerate(relations)}
+        with open(self.config.cases_triples_json, "w", encoding="utf-8") as f:
+            json.dump(triple_result, f, ensure_ascii=False)
         with open(self.config.train_triple_file, "w", encoding="utf-8") as f:
-            for entity1, entity2, relation in unique_triples:
+            for entity1, entity2, relation in list(unique_triples):  # [:500]:  # todo Count limit
                 f.write(f"{entity2id[entity1]}\t{entity2id[entity2]}\t{relation2id[relation]}\n")
         with open(self.config.entity2id_path, 'w', encoding='utf-8') as f:
             f.write(f"{len(entity2id)}\n")
@@ -156,8 +160,10 @@ class KGG2KE(object):
             for rel, rel_id in relation2id.items():
                 f.write(f"{rel}\t{rel_id}\n")
 
-    def data_split(self):
+    def data_split(self, _shuffle=True):
         df = pd.read_csv(self.config.train_triple_file, header=None, sep="\t")  # train.txt
+        if _shuffle:
+            df = shuffle(df)
         print("df head 5: \n", df.head(5), "\n\ndf tail 5: \n", df.tail(5), "\n")
         # df = df.sample(frac=1.0)
         train_size = int(0.6 * df.shape[0])
@@ -166,9 +172,9 @@ class KGG2KE(object):
 
         print("train_size: ", train_size, "\ntest_size: ", test_size, "\nvalid_size: ", valid_size, "\n")
 
-        train_df = df.loc[: train_size - 1]
-        test_df = df.loc[train_size: train_size + test_size - 1]
-        valid_df = df.loc[train_size + test_size: train_size + test_size + valid_size - 1]
+        train_df = df[: train_size]
+        test_df = df[train_size: train_size + test_size]
+        valid_df = df[train_size + test_size: train_size + test_size + valid_size]
 
         with open(self.config.train2id_file, "w") as f_train:
             f_train.write(str(train_size) + "\n")
@@ -182,8 +188,10 @@ class KGG2KE(object):
         train_df.to_csv(self.config.train2id_file, header=None, sep='\t', index=False, mode='a')
         test_df.to_csv(self.config.test2id_file, header=None, sep='\t', index=False, mode='a')
         valid_df.to_csv(self.config.valid2id_file, header=None, sep='\t', index=False, mode='a')
+        # import ipdb
+        # ipdb.set_trace()
 
     def run(self):
-        self.get_triple_result()
+        # self.get_triple_result()
         self.create_ke_train_data()
         self.data_split()

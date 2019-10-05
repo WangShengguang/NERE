@@ -56,8 +56,6 @@ class Trainer(object):
 
     def get_model(self):
         vocab_size = len(self.data_helper.tokenizer.vocab)
-        num_ent_tags = len(self.data_helper.ent_tag2id)
-        num_rel_tags = len(self.data_helper.rel_label2id)
         if Config.load_pretrain and os.path.isfile(self.model_path):
             # 载入预训练model
             model = load_model(self.model_path, custom_objects={"CRF": CRF,
@@ -80,7 +78,8 @@ class Trainer(object):
     def run(self):
         model = self.get_model()
         if self.mode == "test":
-            acc, precision, recall, f1 = Evaluator(framework="keras", task="ner", data_type="test").test(model=model)
+            evaluator = Evaluator(task=self.task, model_name=self.model_name, framework="keras", load_model=True)
+            acc, precision, recall, f1 = evaluator.test(data_type="test")
             _test_log = "{} test acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
                 self.model_name, acc, precision, recall, f1)
             logging.info(_test_log)
