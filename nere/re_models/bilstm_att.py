@@ -1,24 +1,20 @@
-# coding:utf8
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from config import Config
-
 
 class BiLSTM_ATT(nn.Module):
-    def __init__(self, vocab_size, num_ent_tags, num_rel_tags):
+    def __init__(self, vocab_size, num_ent_tags, num_rel_tags, ent_emb_dim, batch_size):
         super(BiLSTM_ATT, self).__init__()
-        self.batch_size = Config.batch_size
+        self.batch_size = batch_size
         self.vocab_size = vocab_size
-        self.embedding_dim = Config.ent_emb_dim
+        self.embedding_dim = ent_emb_dim
         self.hidden_dim = 256
         self.num_rel_tags = num_rel_tags
         self.num_ent_tags = num_ent_tags
-        self.ent_emb_dim = Config.ent_emb_dim
 
         self.word_embeds = nn.Embedding(self.vocab_size, self.embedding_dim)
-        self.ent_label_embeddings = nn.Embedding(num_ent_tags, Config.ent_emb_dim)
+        self.ent_label_embeddings = nn.Embedding(num_ent_tags, ent_emb_dim)
 
         self.lstm = nn.LSTM(input_size=self.embedding_dim, hidden_size=self.hidden_dim // 2,
                             num_layers=2, bidirectional=True)
@@ -31,22 +27,13 @@ class BiLSTM_ATT(nn.Module):
 
         self.att_weight = nn.Parameter(torch.randn(self.batch_size, 1, self.hidden_dim))
 
-        self.classifier = nn.Linear(self.ent_emb_dim * 2 + self.hidden_dim * 3, self.num_rel_tags)
+        self.classifier = nn.Linear(ent_emb_dim * 2 + self.hidden_dim * 3, self.num_rel_tags)
         self.criterion_loss = nn.CrossEntropyLoss(size_average=True)
-
-    # def init_hidden(self):
-    #     return torch.randn(2, self.batch_size, self.hidden_dim // 2).to(Config.device)
-    #
-    # def init_hidden_lstm(self):
-    #     return (torch.randn(2, self.batch_size, self.hidden_dim // 2).to(Config.device),
-    #             torch.randn(2, self.batch_size, self.hidden_dim // 2).to(Config.device))
 
     def attention(self, H):
         M = F.tanh(H)
         a = F.softmax(torch.bmm(self.att_weight, M), 2)
         a = torch.transpose(a, 1, 2)
-        # import ipdb
-        # ipdb.set_trace()
         return torch.bmm(H, a)
 
     def get_ent_features(self, seq_output, ent_masks):
@@ -80,7 +67,7 @@ class BiLSTM_ATT(nn.Module):
         embeds = torch.transpose(embeds, 0, 1)
 
         lstm_out, (h_n, h_c) = self.lstm(embeds)
-        lstm_out = torch.transpose(lstm_out, 0, 1)#sequence_len, batch_size, hidden_dim
+        lstm_out = torch.transpose(lstm_out, 0, 1)  # sequence_len, batch_size, hidden_dim
         # shape: (batch_size, hidden_size)
         e1_features = self.get_ent_features(lstm_out, e1_masks)
         e2_features = self.get_ent_features(lstm_out, e2_masks)
@@ -89,13 +76,12 @@ class BiLSTM_ATT(nn.Module):
 
         lstm_out = self.dropout_lstm(lstm_out)  # sequence_len, hidden_dim, batch_size
         att_out = F.tanh(self.attention(lstm_out)).view(self.batch_size, -1)
-
         all_features = torch.cat((ent_label_features, att_out, e1_features, e2_features), dim=1)
         all_features = self.dropout(all_features)
 
         logits = self.classifier(all_features)
         if rel_labels is None:
-            _, label_indices = logits.max(dim=1)
+            label_indices = logits.argmax(dim=1)
             return label_indices
         else:
             loss = self.criterion_loss(logits, rel_labels)

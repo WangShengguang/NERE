@@ -1,22 +1,18 @@
 import torch
 import torch.nn as nn
-from keras.utils import to_categorical
-
-from config import Config
 
 
 class BiLSTM(nn.Module):
-    def __init__(self, vocab_size, num_ent_tags):
+    def __init__(self, vocab_size, num_ent_tags, ent_emb_dim, batch_size):
         super(BiLSTM, self).__init__()
-        self.batch_size = Config.batch_size
+        self.batch_size = batch_size
         self.vocab_size = vocab_size
-        self.embedding_dim = Config.ent_emb_dim
+        self.embedding_dim = ent_emb_dim
         self.hidden_dim = 256
         self.num_ent_tags = num_ent_tags
-        self.ent_emb_dim = Config.ent_emb_dim
 
         self.word_embeds = nn.Embedding(self.vocab_size, self.embedding_dim)
-        self.ent_label_embeddings = nn.Embedding(num_ent_tags, Config.ent_emb_dim)
+        self.ent_label_embeddings = nn.Embedding(num_ent_tags, ent_emb_dim)
 
         self.lstm = nn.LSTM(input_size=self.embedding_dim, hidden_size=self.hidden_dim // 2,
                             num_layers=2, bidirectional=True)
@@ -42,7 +38,4 @@ class BiLSTM(nn.Module):
             # output = torch.clamp(output, 1e-7, 1 - 1e-7)
             # loss = - torch.sum(target * torch.log(output))
             loss = nn.CrossEntropyLoss()(output.permute(0, 2, 1), labels)
-            # print(loss)
-            # import ipdb
-            # ipdb.set_trace()
             return loss

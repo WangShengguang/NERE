@@ -26,11 +26,14 @@ class Predictor(object):
             model = None  # torch.load
         else:
             raise ValueError(self.framework)
+        if task == "ner" and model_name in ["BiLSTM_ATT"]:
+            self.fixed_seq_len = Config.max_sequence_len
         model.eval()  # 切记，否则有偏差
         return model
 
-    def set_model(self, model):
+    def set_model(self, model, fixed_seq_len=None):
         self.model = model
+        self.fixed_seq_len = fixed_seq_len
         if self.framework == "torch":
             self.model.eval()
 
@@ -96,14 +99,16 @@ class Evaluator(Predictor):
         re_type = "torch" if self.framework == "torch" else "numpy"
         for batch_data in self.data_helper.batch_iter(task="ner", data_type=data_type,
                                                       batch_size=Config.test_batch_size,
-                                                      re_type=re_type, _shuffle=False):
+                                                      re_type=re_type, _shuffle=False,
+                                                      fixed_seq_len=self.fixed_seq_len):
             # with torch.no_grad():  # 适用于测试阶段，不需要反向传播
             ner_logits = self.model(batch_data, is_train=False, mode="ner")  # shape: (batch_size, seq_length)
             ner_pred_tags.extend(ner_logits.tolist())
             ner_true_tags.extend(batch_data["ent_tags"].tolist())
         for batch_data in self.data_helper.batch_iter(task="re", data_type=data_type,
                                                       batch_size=Config.test_batch_size,
-                                                      re_type=re_type, _shuffle=False):
+                                                      re_type=re_type, _shuffle=False,
+                                                      fixed_seq_len=self.fixed_seq_len):
             # with torch.no_grad():  # 适用于测试阶段，不需要反向传播
             re_logits = self.model(batch_data, is_train=False, mode="re")  # shape: (batch_size, seq_length)
             re_pred_tags.extend(re_logits.tolist())
@@ -120,7 +125,8 @@ class Evaluator(Predictor):
         re_type = "torch" if self.framework == "torch" else "numpy"
         for batch_data in self.data_helper.batch_iter(task=self.task, data_type=data_type,
                                                       batch_size=Config.test_batch_size,
-                                                      re_type=re_type, _shuffle=False):
+                                                      re_type=re_type, _shuffle=False,
+                                                      fixed_seq_len=self.fixed_seq_len):
             batch_pred_ids = self.predict_ner(batch_data)  # shape: (batch_size, 1)
             pred_tags.extend(batch_pred_ids.tolist())
             true_tags.extend(batch_data["ent_tags"].tolist())
@@ -134,7 +140,8 @@ class Evaluator(Predictor):
         re_type = "torch" if self.framework == "torch" else "numpy"
         for batch_data in self.data_helper.batch_iter(task=self.task, data_type=data_type,
                                                       batch_size=Config.test_batch_size,
-                                                      re_type=re_type, _shuffle=False):
+                                                      re_type=re_type, _shuffle=False,
+                                                      fixed_seq_len=self.fixed_seq_len):
             batch_pred_ids = self.predict_re(batch_data)  # shape: (batch_size, 1)
             pred_tags.extend(batch_pred_ids.tolist())
             true_tags.extend(batch_data["rel_labels"].tolist())

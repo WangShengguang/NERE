@@ -174,7 +174,7 @@ class DataHelper(object):
                     if key != "ent_tags":
                         re_data[key].pop(i - omit)
                 omit += 1
-        print("* get_joint_data, {}, omit/all:{}/{}, joint_sents/unique_sents: {}/{}".format(
+        print("* get_joint_data, {}, omit/all: {}/{}, joint_sents/unique_sents: {}/{}".format(
             data_type, omit, len(hash_sents), len(re_data["sents"]), len(unique_sents)))
         assert len(re_data["sents"]) == len(re_data["ent_tags"])
         return re_data

@@ -95,8 +95,6 @@ class PrepareJointData(object):
         write_re_data_to_file(joint_train_sents, data_type="train", re_data=re_data)
         write_re_data_to_file(re_test_sents, data_type="test", re_data=re_data)
         write_re_data_to_file(re_val_sents, data_type="valid", re_data=re_data)
-        # import ipdb
-        # ipdb.set_trace()
 
 
 def write_re_data_to_file(sent_txts, data_type, re_data):

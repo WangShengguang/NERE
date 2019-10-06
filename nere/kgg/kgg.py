@@ -188,8 +188,6 @@ class KGG2KE(object):
         train_df.to_csv(self.config.train2id_file, header=None, sep='\t', index=False, mode='a')
         test_df.to_csv(self.config.test2id_file, header=None, sep='\t', index=False, mode='a')
         valid_df.to_csv(self.config.valid2id_file, header=None, sep='\t', index=False, mode='a')
-        # import ipdb
-        # ipdb.set_trace()
 
     def run(self):
         # self.get_triple_result()

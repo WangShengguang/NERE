@@ -33,9 +33,9 @@ def join_run(mode):
     ner_model = "BERTCRF"
     re_model = "BERTMultitask"
     fix_loss_rate = False
-    from nere.torch_trainer import JoinTrainer
     if fix_loss_rate:
         logging_config("joint_{}_fixed_rate.log".format(mode))
+        from nere.joint_trainer import JoinTrainer
         ner_loss_rate = 0.15
         re_loss_rate = 0.8
         transe_rate = 0.05
@@ -44,6 +44,7 @@ def join_run(mode):
                                     transe_rate=transe_rate)
     else:
         logging_config("joint_{}.log".format(mode))
+        from nere.torch_trainer import JoinTrainer
         model_trainer = JoinTrainer(task="joint", ner_model=ner_model, re_model=re_model)
     # 训练
     model_trainer.run(mode=mode)
@@ -85,8 +86,9 @@ def kgg(data_set):
 
 def data_prepare(task):
     logging_config("{}_data_prepare.log".format(task))
-    from nere.data_preparation.prepare_ner import create_ner_data  # 标注有误，绝不可用之；使用现有标注好的数据
-    from nere.data_preparation.prepare_re import create_re_data
+    # 标注有误，不可用之；使用现有标注好的数据
+    # from nere.data_preparation.prepare_ner import create_ner_data
+    # from nere.data_preparation.prepare_re import create_re_data
     from nere.data_preparation.prepare_joint import create_joint_data
     if task == "joint":
         # create_ner_data()
@@ -94,18 +96,18 @@ def data_prepare(task):
         # create_re_data()
         # print("\n\n")
         create_joint_data()
-    elif task == "ner":
-        create_ner_data()
-    elif task == "re":
-        create_re_data()
+    # elif task == "ner":
+    #     create_ner_data()
+    # elif task == "re":
+    #     create_re_data()
     else:
         raise ValueError(task)
 
 
 Keras_ner_models = ["bilstm", "bilstm_crf"]
-torch_ner_models = ["BERTCRF", "BERTSoftmax", "BiLSTM"]  # BiLSTM_ATT
+torch_ner_models = ["BERTCRF", "BERTSoftmax", "BiLSTM"]  # BiLSTM_ATT 无效果
 NER_models = torch_ner_models + Keras_ner_models
-RE_models = ["BERTMultitask", "BERTSoftmax", "BiLSTM_ATT", "ACNN", "BiLSTM"]
+RE_models = ["BERTMultitask", "BERTSoftmax", "BiLSTM_ATT", "BiLSTM"]  # ACNN 无效果
 
 
 def main():

@@ -66,8 +66,6 @@ class BiLSTM(nn.Module):
         e1_features = self.get_ent_features(lstm_out, e1_masks)
         e2_features = self.get_ent_features(lstm_out, e2_masks)
         lstm_out = self.dropout_lstm(lstm_out)
-        # import ipdb
-        # ipdb.set_trace()
         all_features = torch.cat((ent_label_features, lstm_out[:, -1, :], e1_features, e2_features), dim=1)
         all_features = self.dropout(all_features)
 

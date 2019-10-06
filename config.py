@@ -49,7 +49,7 @@ class TrainConfig(object):
     # sample data
     max_sequence_len = 402
     batch_size = 16  # joint memory out  # default 16
-    test_batch_size = 8
+    test_batch_size = batch_size  # default 8
     # train params
     ent_emb_dim = 128
     rel_emb_dim = 768
