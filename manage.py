@@ -17,27 +17,36 @@ def torch_run(task, model_name, mode):
     logging_config("{}_{}_{}_torch.log".format(task, model_name, mode))
     if task == "ner":
         from nere.torch_trainer import Trainer
-        Trainer(model_name=model_name, task=task, mode=mode).run()
+        Trainer(model_name=model_name, task=task).run(mode=mode)
     elif task == "re":
         from nere.torch_trainer import Trainer
-        Trainer(model_name=model_name, task=task, mode=mode).run()
+        Trainer(model_name=model_name, task=task).run(mode=mode)
 
 
 def keras_run(task, model_name, mode):
     logging_config("{}_{}_{}_keras.log".format(task, model_name, mode))
     from nere.keras_trainer import Trainer
-    Trainer(task="ner", model_name=model_name, mode=mode).run()
+    Trainer(task="ner", model_name=model_name).run(mode=mode)
 
 
 def join_run(mode):
     ner_model = "BERTCRF"
     re_model = "BERTMultitask"
-    logging_config("joint_{}.log".format(mode))
+    fix_loss_rate = False
     from nere.torch_trainer import JoinTrainer
-    if mode == "train":
-        JoinTrainer(task="joint", ner_model=ner_model, re_model=re_model, mode=mode).run()
-    # test
-    JoinTrainer(task="joint", ner_model=ner_model, re_model=re_model, mode="test").run()
+    if fix_loss_rate:
+        logging_config("joint_{}_fixed_rate.log".format(mode))
+        ner_loss_rate = 0.15
+        re_loss_rate = 0.8
+        transe_rate = 0.05
+        model_trainer = JoinTrainer(task="joint", ner_model=ner_model, re_model=re_model,
+                                    fix_loss_rate=True, ner_loss_rate=ner_loss_rate, re_loss_rate=re_loss_rate,
+                                    transe_rate=transe_rate)
+    else:
+        logging_config("joint_{}.log".format(mode))
+        model_trainer = JoinTrainer(task="joint", ner_model=ner_model, re_model=re_model)
+    # 训练
+    model_trainer.run(mode=mode)
 
 
 def run_all(task, mode):
@@ -51,20 +60,20 @@ def run_all(task, mode):
         from nere.torch_trainer import Trainer
         for model_name in torch_ner_models:
             with GetTime(prefix=f"torch model:{task} {model_name}"):
-                Trainer(model_name=model_name, task=task, mode=mode).run()
+                Trainer(model_name=model_name, task=task).run(mode=mode)
             gc.collect()
         # keras
         from nere.keras_trainer import Trainer
         for model_name in Keras_ner_models:
             with GetTime(prefix=f"keras model:{task} {model_name}"):
-                Trainer(task="ner", model_name=model_name, mode=mode).run()
+                Trainer(task="ner", model_name=model_name).run(mode=mode)
             gc.collect()
     elif task == "re":
         logging_config(f"re_all_{mode}.log")
         from nere.torch_trainer import Trainer
         for model_name in RE_models:
             with GetTime(prefix=f"torch model: {task} {model_name}"):
-                Trainer(model_name=model_name, task=task, mode=mode).run()
+                Trainer(model_name=model_name, task=task).run(mode=mode)
             gc.collect()
 
 
@@ -76,8 +85,8 @@ def kgg(data_set):
 
 def data_prepare(task):
     logging_config("{}_data_prepare.log".format(task))
-    # from nere.data_preparation.prepare_ner import create_ner_data  #标注有误，绝不可用之；使用现有标注好的数据
-    # from nere.data_preparation.prepare_re import create_re_data
+    from nere.data_preparation.prepare_ner import create_ner_data  # 标注有误，绝不可用之；使用现有标注好的数据
+    from nere.data_preparation.prepare_re import create_re_data
     from nere.data_preparation.prepare_joint import create_joint_data
     if task == "joint":
         # create_ner_data()
@@ -85,10 +94,10 @@ def data_prepare(task):
         # create_re_data()
         # print("\n\n")
         create_joint_data()
-    # elif task == "ner":
-    #     create_ner_data()
-    # elif task == "re":
-    #     create_re_data()
+    elif task == "ner":
+        create_ner_data()
+    elif task == "re":
+        create_re_data()
     else:
         raise ValueError(task)
 

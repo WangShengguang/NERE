@@ -16,12 +16,14 @@ torch.manual_seed(rand_seed)
 random.seed(rand_seed)
 np.random.seed(rand_seed)
 
+tmp_suffix = "-tmp"
+
 
 class PreprocessConfig(object):
     annotation_data_dir = os.path.join(data_dir, "raw_data", "annotation")
     predefined_file = os.path.join(annotation_data_dir, 'predefined_lables.txt')
     # output as  model input
-    # input
+    # preprocess output & model input
     ner_data_dir = os.path.join(data_dir, "ner")
     re_data_dir = os.path.join(data_dir, "re")
     joint_ner_data_dir = os.path.join(data_dir, "joint", "ner")
@@ -29,9 +31,6 @@ class PreprocessConfig(object):
     # pretrain model
     bert_pretrained_dir = os.path.join(data_dir, "bert-base-chinese-pytorch")
     bert_config_path = os.path.join(bert_pretrained_dir, 'bert_config.json')
-
-
-kgg_bak_name = "-copy"
 
 
 class DataConfig(PreprocessConfig):

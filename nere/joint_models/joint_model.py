@@ -24,7 +24,7 @@ class JointNerRe(nn.Module):
         :param mode: joint,ner,re
         :return:
         """
-        if is_train:
+        if is_train:  # 训练
             if mode == "ner":
                 batch_masks = batch_data["sents"].gt(0)
                 ner_loss = self.ner(batch_data["sents"], token_type_ids=None,
@@ -38,8 +38,8 @@ class JointNerRe(nn.Module):
                 ner_loss = self.ner(batch_data["sents"], token_type_ids=None,
                                     attention_mask=batch_masks, labels=batch_data["ent_tags"])
                 re_loss, transe_loss = self.re(batch_data, labels=batch_data["rel_labels"])
-                loss = self.ner_loss_rate * ner_loss + self.re_loss_rate * re_loss + self.trane_loss_rate * transe_loss
-                return loss
+                joint_loss = self.ner_loss_rate * ner_loss + self.re_loss_rate * re_loss + self.trane_loss_rate * transe_loss
+                return joint_loss, ner_loss, re_loss, transe_loss
         else:  # eval
             if mode == "ner":
                 ner_logits = self.ner(batch_data["sents"])

@@ -140,8 +140,6 @@ class Evaluator(Predictor):
             true_tags.extend(batch_data["rel_labels"].tolist())
         assert len(pred_tags) == len(true_tags)
         acc, precision, recall, f1 = self.get_re_metrics(true_tags, pred_tags, average="macro")
-        import ipdb
-        ipdb.set_trace()
         return acc, precision, recall, f1
 
     def evaluate_ner(self, batch_y_ent_ids, batch_pred_ent_ids):

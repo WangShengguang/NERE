@@ -44,7 +44,7 @@ class BaseTrainer(object):
         self.optimizer = Adam(optimizer_grouped_parameters, lr=Config.learning_rate)
         self.scheduler = LambdaLR(self.optimizer, lr_lambda=lambda epoch: 1 / (1 + 0.05 * epoch))
 
-    def backfoward(self, loss):
+    def backfoward(self, loss, model):
         if Config.gpu_nums > 1 and Config.multi_gpu:
             loss = loss.mean()  # mean() to average on multi-gpu
         if Config.gradient_accumulation_steps > 1:
@@ -54,7 +54,7 @@ class BaseTrainer(object):
 
         if self.global_step % Config.gradient_accumulation_steps == 0:
             # gradient clipping
-            nn.utils.clip_grad_norm_(parameters=self.model.parameters(), max_norm=Config.clip_grad)
+            nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=Config.clip_grad)
             # performs updates using calculated gradients
             self.optimizer.step()
             # clear previous gradients
@@ -63,11 +63,10 @@ class BaseTrainer(object):
 
 
 class Trainer(BaseTrainer):
-    def __init__(self, model_name, task, mode="train"):
+    def __init__(self, model_name, task):
         super().__init__()
         self.model_name = model_name
         self.task = task
-        self.mode = mode  # train evaluate
         self.model_dir = os.path.join(Config.torch_ckpt_dir, task)
         self.model_path = os.path.join(self.model_dir, model_name + ".bin")
         os.makedirs(self.model_dir, exist_ok=True)
@@ -130,21 +129,21 @@ class Trainer(BaseTrainer):
         self.init_model(model)
         return model
 
-    def save_best_loss_model(self, loss):
+    def save_best_loss_model(self, loss, model):
         if loss <= self.best_loss:
-            torch.save(self.model.state_dict(), self.model_path)
+            torch.save(model.state_dict(), self.model_path)
             self.best_loss = loss
             _log = "loss: {:.4f}, save to :{}".format(loss, self.model_path)
             logging.info(_log)
 
-    def evaluate_save(self):
+    def evaluate_save(self, model):
         # with torch.no_grad():  # 适用于测试阶段，不需要反向传播
-        self.evaluator.set_model(model=self.model)
-        acc, precision, recall, f1 = self.evaluator.test(data_type="val")
+        self.evaluator.set_model(model=model)
+        acc, precision, recall, f1 = self.evaluator.test(data_type="valid")
         logging.info("acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
             acc, precision, recall, f1))
         if f1 > self.best_val_f1:
-            torch.save(self.model.state_dict(), self.model_path)
+            torch.save(model.state_dict(), self.model_path)
             logging.info("** - Found new best F1 ,save to model_path: {}".format(self.model_path))
             if f1 - self.best_val_f1 < Config.patience:
                 self.patience_counter += 1
@@ -154,20 +153,20 @@ class Trainer(BaseTrainer):
         else:
             self.patience_counter += 1
 
-    def train_step(self, batch_data):
+    def train_step(self, batch_data, model):
         if self.task == "ner":
-            loss = self.model(input_ids=batch_data["sents"], attention_mask=batch_data["sents"].gt(0),
-                              labels=batch_data["ent_tags"])
+            loss = model(input_ids=batch_data["sents"], attention_mask=batch_data["sents"].gt(0),
+                         labels=batch_data["ent_tags"])
         elif self.task == "re":
-            loss = self.model(batch_data, batch_data["rel_labels"])
+            loss = model(batch_data, batch_data["rel_labels"])
         else:
             raise ValueError(self.task)
         return loss
 
-    def run(self):
-        self.model = self.get_model()
-        if self.mode == "test":
-            self.evaluator.set_model(model=self.model)
+    def run(self, mode):
+        model = self.get_model()
+        if mode == "test":
+            self.evaluator.set_model(model=model)
             acc, precision, recall, f1 = self.evaluator.test(data_type="test")
             _test_log = "* model: {} {}, test acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
                 self.task, self.model_name, acc, precision, recall, f1)
@@ -177,18 +176,18 @@ class Trainer(BaseTrainer):
         logging.info("{}-{} start train , epoch_nums:{}...".format(self.task, self.model_name, Config.max_epoch_nums))
         for epoch_num in trange(1, Config.max_epoch_nums + 1,
                                 desc="{} {} train epoch num".format(self.task, self.model_name)):
-            self.model.train()
+            model.train()
             for batch_data in self.data_helper.batch_iter(self.task, data_type="train", batch_size=Config.batch_size,
                                                           re_type="torch"):
-                loss = self.train_step(batch_data)
-                self.backfoward(loss)
+                loss = self.train_step(batch_data, model)
+                self.backfoward(loss, model)
                 self.global_step += 1
                 self.scheduler.step(epoch=epoch_num)  # 更新学习率
                 if self.global_step % Config.check_step == 0:
                     logging.info("* global_step:{} loss: {:.4f}".format(self.global_step, loss.item()))
                     # print("* global_step:{} loss: {:.4f}".format(self.global_step, loss.item()))
                     # self.save_best_loss_model(loss)
-            self.evaluate_save()
+            self.evaluate_save(model)
             logging.info("epoch_num: {} end .".format(epoch_num))
             # Early stopping and logging best f1
             if self.patience_counter >= Config.patience_num and epoch_num > Config.min_epoch_nums:
@@ -198,19 +197,22 @@ class Trainer(BaseTrainer):
 
 
 class JoinTrainer(Trainer):
-    def __init__(self, task, ner_model, re_model, mode="train",
+    def __init__(self, task, ner_model, re_model,
+                 fix_loss_rate=False,
                  ner_loss_rate=0.15, re_loss_rate=0.8, transe_rate=0.05):
-        self.model_name = "joint_{:.5}{}_{:.5}{}_{:.5}TransE".format(
-            ner_loss_rate, ner_model, re_loss_rate, re_model, transe_rate)
-        self.model_name = "joint_{}_{}".format(ner_model, re_model)
+        self.fixed_rate = fix_loss_rate
+        if fix_loss_rate:
+            self.model_name = "joint_{:.5}{}_{:.5}{}_{:.5}TransE".format(
+                ner_loss_rate, ner_model, re_loss_rate, re_model, transe_rate)
+            # join rate
+            self.ner_loss_rate = ner_loss_rate
+            self.re_loss_rate = re_loss_rate
+            self.transe_rate = transe_rate
+        else:
+            self.model_name = "joint_{}_{}".format(ner_model, re_model)
         super().__init__(model_name=self.model_name, task=task)
         self.ner_model = ner_model
         self.re_model = re_model
-        self.mode = mode
-        # join rate
-        self.ner_loss_rate = ner_loss_rate
-        self.re_loss_rate = re_loss_rate
-        self.transe_rate = transe_rate
         self.ner_path = os.path.join(self.model_dir, "{}_ner.bin".format(self.model_name))
         self.re_path = os.path.join(self.model_dir, "{}_re.bin".format(self.model_name))
         self.joint_path = os.path.join(self.model_dir, self.model_name + ".bin")
@@ -238,9 +240,9 @@ class JoinTrainer(Trainer):
         self.init_model(model)
         return model
 
-    def evaluate_save(self):
-        self.evaluator.set_model(model=self.model)
-        metrics = self.evaluator.test(data_type="val")
+    def evaluate_save(self, model):
+        self.evaluator.set_model(model=model)
+        metrics = self.evaluator.test(data_type="valid")
         logging.info("*model:{} valid, NER acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
             self.model_name, *metrics["NER"]))
         logging.info("*model:{} valid,  RE acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
@@ -249,8 +251,8 @@ class JoinTrainer(Trainer):
         re_f1 = metrics["RE"][-1]
         ave_f1 = (ner_f1 + re_f1) / 2
         if ave_f1 > self.best_val_f1_dict["Joint"]["Joint"]:
-            # model_to_save = self.model.module if hasattr(self.model, 'module') else self.model
-            torch.save(self.model.state_dict(), self.joint_path)  # Only save the model it-self
+            # model_to_save = model.module if hasattr(model, 'module') else model
+            torch.save(model.state_dict(), self.joint_path)  # Only save the model it-self
             logging.info("** - Found new best NER&RE F1,ave_f1:{:.4f},ner_f1:{:.4f},re_f1:{:.4f}"
                          " ,save to model_path: {}".format(ave_f1, ner_f1, re_f1, self.joint_path))
             if ave_f1 - self.best_val_f1_dict["Joint"]["Joint"] < Config.patience:
@@ -262,31 +264,27 @@ class JoinTrainer(Trainer):
             self.patience_counter += 1
         if ner_f1 > self.best_val_f1_dict["NER"]:
             self.best_val_f1_dict["NER"] = ner_f1
-            torch.save(self.model.ner.state_dict(), self.ner_path)  # Only save the model it-self
+            torch.save(model.ner.state_dict(), self.ner_path)  # Only save the model it-self
             logging.info("** - Found new best NER F1: {:.4f} ,save to model_path: {}".format(
                 ner_f1, self.ner_path))
         if re_f1 > self.best_val_f1_dict["RE"]:
             self.best_val_f1_dict["RE"] = re_f1
-            torch.save(self.model.re.state_dict(), self.re_path)  # Only save the model it-self
+            torch.save(model.re.state_dict(), self.re_path)  # Only save the model it-self
             logging.info("** - Found new best RE F1:{:.4f} ,save to model_path: {}".format(
                 re_f1, self.re_path))
 
-    def train_step(self, batch_data):
-        loss = self.model(batch_data, is_train=True)
-        return loss
-
-    def run(self):
-        _log_str = "* {} {} start ...".format(self.model_name, self.mode)
+    def run(self, mode):
+        _log_str = "* {} {} start ...".format(self.model_name, mode)
         logging.info(_log_str)
         print(_log_str)
-        self.model = self.get_model()
-        if self.mode == "test":
-            self.evaluator.set_model(model=self.model)
+        model = self.get_model()
+        if mode == "test":
+            self.evaluator.set_model(model=model)
             metrics = self.evaluator.test(data_type="test")
-            _ner_log = "*{} test NER acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(self.model_name,
-                                                                                                        *metrics["NER"])
-            _re_log = "*{} test RE acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(self.model_name,
-                                                                                                      *metrics["RE"])
+            _ner_log = "*{} test NER acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
+                self.model_name, *metrics["NER"])
+            _re_log = "*{} test RE acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
+                self.model_name, *metrics["RE"])
             logging.info(_ner_log)
             logging.info(_re_log)
             print(_ner_log)
@@ -294,28 +292,34 @@ class JoinTrainer(Trainer):
             return
         for epoch_num in trange(1, Config.max_epoch_nums + 2,
                                 desc="{} {} train epoch num".format(self.task, self.model_name)):
-            self.model.train()
+            model.train()
             for batch_data in self.data_helper.batch_iter(self.task, data_type="train",
-                                                          batch_size=Config.batch_size, re_type="torch"):
+                                                          batch_size=Config.batch_size // 2,  # TODO CUDA out of memory.
+                                                          re_type="torch"):
                 try:
-                    loss = self.train_step(batch_data)
+                    joint_loss, ner_loss, re_loss, transe_loss = model(batch_data, is_train=True)
                 except Exception as e:
                     # import traceback
                     # traceback.print_exc()
                     logging.error(e)
                     gc.collect()
                     continue
-                self.backfoward(loss)
+                loss = joint_loss
+                if self.fixed_rate:
+                    loss = self.ner_loss_rate * ner_loss + self.re_loss_rate * re_loss + self.transe_rate * transe_loss
+                self.backfoward(loss, model)
                 self.global_step += 1
                 self.scheduler.step(epoch=epoch_num)  # 更新学习率
-                if self.global_step % Config.check_step == 0:
-                    logging.info("* global_step:{} loss: {:.4f}".format(self.global_step, loss.item()))
+                if self.global_step % 10 == 0:  # Config.check_step == 0:
+                    logging.info("* global_step:{}, ner_loss: {:.4f}, re_loss: {:.4f}, transe_loss: {:.4f}，"
+                                 "joint_loss: {:.4f}".format(
+                        self.global_step, ner_loss.item(), re_loss.item(), transe_loss.item(), loss.item()))
                     # self.save_best_loss_model(loss)
             # self.save_best_loss_model(loss)
-            self.evaluate_save()
+            self.evaluate_save(model)
             logging.info("epoch_num: {} end .".format(epoch_num))
             # Early stopping and logging best f1
             if self.patience_counter >= Config.patience_num and epoch_num > Config.min_epoch_nums:
-                logging.info("{}, Best val f1: {:.4f} best loss:{:.4f}".format(self.model_name, self.best_val_f1,
-                                                                               self.best_loss))
+                logging.info("{}, Best val f1: {:.4f} best loss:{:.4f}".format(
+                    self.model_name, self.best_val_f1, self.best_loss))
                 break

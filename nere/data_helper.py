@@ -1,6 +1,7 @@
 import logging
 import os
 import random
+from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
@@ -8,8 +9,6 @@ import torch
 from pytorch_pretrained_bert import BertTokenizer
 
 from config import Config
-
-from collections import defaultdict
 
 
 class DataHelper(object):
@@ -51,11 +50,11 @@ class DataHelper(object):
         """Loads the data for each type in types from data_dir.
 
         Args:
-            data_type: (str) has one of 'train', 'val', 'test' depending on which data is required.
+            data_type: (str) has one of 'train', "valid", 'test' depending on which data is required.
         Returns:
             data: (dict) contains the data with tags for each type in types.
         """
-        assert data_type in ['train', 'val', 'test'], "data type not in ['train', 'val', 'test']"
+        assert data_type in ["train", "valid", "test"], "data type not in ['train','valid','test']"
         data_dir = Path(self.ner_data_dir).joinpath(data_type)
         with open(data_dir.joinpath("sentences.txt"), "r", encoding="utf-8") as f:
             sentences = []
@@ -73,16 +72,15 @@ class DataHelper(object):
 
     def get_re_data(self, data_type):
         """Loads the data for each type in types from data_dir.
-        :param data_type ['train', 'val', 'test']
+        :param data_type ['train', "valid", 'test']
         :return data2id, 全部转换为对应的id list
         """
-        assert data_type in ['train', 'val', 'test'], "data type not in ['train', 'val', 'test']"
+        assert data_type in ["train", "valid", "test"], "data type not in ['train', 'valid','test']"
         ent_labels, e1_indices, e2_indices, sentences, rel_labels = [], [], [], [], []  # Convert to corresponding ids
         pos1, pos2 = [], []
         entity_match_omit = 0
         with open(os.path.join(self.re_data_dir, "{}.txt".format(data_type)), "r", encoding="utf-8") as f:
             for line in f:
-                _ent_match_omit = 0
                 splits = line.strip().split('\t')
                 rel_label = splits[0]
                 e1_label, e2_label = splits[1], splits[2]
@@ -95,16 +93,13 @@ class DataHelper(object):
                 e2_match = self.find_sub_list(sent_tokens, e2_tokens)
                 if not e1_match:
                     logging.info("Exception: {}\t{}\t{}\n".format(e1, e1_tokens, sent_text))
-                    _ent_match_omit += 1
-                else:
-                    pos1.append([pos_encode(i - e1_match[0]) for i in range(len(sent_tokens))])
                 if not e2_match:
                     logging.info("Exception: {}\t{}\t{}\n".format(e2, e2_tokens, sent_text))
-                    _ent_match_omit += 1
-                else:
-                    pos2.append([pos_encode(i - e2_match[0]) for i in range(len(sent_tokens))])
-                if _ent_match_omit:
+                if not e1_match or not e2_match:
+                    entity_match_omit += 1
                     continue
+                pos1.append([pos_encode(i - e1_match[0], len(sent_tokens)) for i in range(len(sent_tokens))])
+                pos2.append([pos_encode(i - e2_match[0], len(sent_tokens)) for i in range(len(sent_tokens))])
                 e1_indices.append(e1_match)
                 e2_indices.append(e2_match)
                 sentences.append(self.tokenizer.convert_tokens_to_ids(sent_tokens))
@@ -113,7 +108,7 @@ class DataHelper(object):
             assert len(sentences) == len(rel_labels)
         data = {'ent_labels': ent_labels, 'e1_indices': e1_indices, 'e2_indices': e2_indices,
                 'pos1': pos1, 'pos2': pos2, 'sents': sentences, 'rel_labels': rel_labels}
-        print("* get_re_data entity_match_omit/sentences: {}/{}".format(entity_match_omit, len(sentences)))
+        print("* get_re_data entity_match_omit sents/sentences: {}/{}".format(entity_match_omit, len(sentences)))
         return data
 
     def find_sub_list(self, all_list, sub_list):
@@ -149,7 +144,7 @@ class DataHelper(object):
             joint_data["pos2"].append(re_data["pos2"][i])
             joint_data["sents"].append(re_data["sents"][i])
             joint_data["rel_labels"].append(re_data["rel_labels"][i])
-        print("* get_joint_train_data, {}".format(len(joint_data["sents"])))
+        print("* get_joint train sents samples, {}".format(len(joint_data["sents"])))
         return joint_data
 
     def get_joint_data(self, data_type):
@@ -160,7 +155,7 @@ class DataHelper(object):
         :return:
         """
         shash2ent_tag = {}
-        for _data_type in ["train", "val", "test"]:
+        for _data_type in ["train", "valid", "test"]:
             _ner_data = self.get_ner_data(_data_type)
             for sentence, ent_tag in zip(_ner_data["sents"], _ner_data["ent_tags"]):
                 shash2ent_tag[hash(tuple(sentence))] = ent_tag
@@ -179,7 +174,7 @@ class DataHelper(object):
                     if key != "ent_tags":
                         re_data[key].pop(i - omit)
                 omit += 1
-        print("* get_joint_data, {}, omit/all:{}/{}, joint_data/unique_sents: {}/{}".format(
+        print("* get_joint_data, {}, omit/all:{}/{}, joint_sents/unique_sents: {}/{}".format(
             data_type, omit, len(hash_sents), len(re_data["sents"]), len(unique_sents)))
         assert len(re_data["sents"]) == len(re_data["ent_tags"])
         return re_data
@@ -190,7 +185,7 @@ class DataHelper(object):
         :param re_type: numpy, torch
         :return:  dict padding & to type
         """
-        assert task in ["ner", "re", "joint"] and data_type in ["train", "val", "test"]
+        assert task in ["ner", "re", "joint"] and data_type in ["train", "valid", "test"]
         if self.iter_data is None or self.task_data_type != task + data_type:
             if task == "ner":
                 self.iter_data = self.get_ner_data(data_type)
@@ -296,12 +291,12 @@ class DataHelper(object):
         return {k: np.asarray(data) for k, data in sample_datas.items()}
 
 
-def pos_encode(relative_position):
+def pos_encode(relative_position, pos_size):
     """
     :param relative_position: 当前单词相对于实体的位置
     :return:
     """
-    pos_size = Config.max_sequence_len - 100
+    # pos_size = Config.max_sequence_len - 100
     semi_size = pos_size // 2
     if relative_position < -semi_size:
         pos_code = 0

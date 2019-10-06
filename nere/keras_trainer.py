@@ -15,10 +15,9 @@ from nere.evaluator import Evaluator
 
 
 class Trainer(object):
-    def __init__(self, task, model_name, mode="train"):
+    def __init__(self, task, model_name):
         self.task = task
         self.model_name = model_name
-        self.mode = mode
         self.model_path = os.path.join(Config.keras_ckpt_dir, "{}.hdf5".format(model_name))
         self.data_helper = DataHelper()
         self._init()
@@ -31,7 +30,7 @@ class Trainer(object):
 
     def get_data(self):
         train_data = self.data_helper.get_samples(task=self.task, data_type="train")
-        # valid_data = self.data_helper.get_samples(task=self.task, data_type="val")
+        # valid_data = self.data_helper.get_samples(task=self.task, data_type="valid")
         if self.task == "ner":
             x_train, y_train = train_data["sents"], train_data["ent_tags"]
             # x_valid, y_valid = valid_data["sents"], valid_data["ent_tags"]
@@ -75,9 +74,9 @@ class Trainer(object):
         model.summary()
         return model
 
-    def run(self):
+    def run(self, mode="train"):
         model = self.get_model()
-        if self.mode == "test":
+        if mode == "test":
             evaluator = Evaluator(task=self.task, model_name=self.model_name, framework="keras", load_model=True)
             acc, precision, recall, f1 = evaluator.test(data_type="test")
             _test_log = "{} test acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(

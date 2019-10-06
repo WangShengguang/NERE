@@ -1,10 +1,11 @@
 import os
 import random
 import re
+from pathlib import Path
 
 import intervals as I
 from pytorch_pretrained_bert import BertTokenizer
-from pathlib import Path
+from collections import defaultdict
 from config import Config
 
 entity_label2abbr = {'自然人主体': 'NP',
@@ -34,16 +35,13 @@ entity_label2abbr = {'自然人主体': 'NP',
 # filters = ['抗辩事由', '违反道路交通信号灯', '饮酒后驾驶', '醉酒驾驶', '超速', '违法变更车道', '未取得驾驶资格', '超载', '不避让行人', '行人未走人行横道或过街设施', '其他违法行为']
 filters = ['抗辩事由', '其他违法行为']
 
-# entity statistics
-statistics = {}
-
 
 class PrepareNer(object):
     def __init__(self, max_len=Config.max_sequence_len):
         self.tokenizer = BertTokenizer.from_pretrained(Config.bert_pretrained_dir, do_lower_case=True)
         self.max_len = max_len
 
-    def get_data(self, txt_file, ann_file):
+    def get_annoteted_data(self, txt_file, ann_file, samples_statistics):
         """Get a piece of data from a annotated file"""
         # Get annotated entity dict
         entities = {}
@@ -57,10 +55,7 @@ class PrepareNer(object):
                     ent = splits[2]
                     if ';' in label_pos:
                         continue
-                    if ent_label not in statistics:
-                        statistics[ent_label] = 0
-                    else:
-                        statistics[ent_label] += 1
+                    samples_statistics[ent_label] += 1
                     # Cross line annotation, example:  T49   其他违法行为 1320 1372;1374 1417
                     if ent not in entities and ent_label not in filters:
                         entities[ent] = ent_label
@@ -165,37 +160,53 @@ class PrepareNer(object):
 def prepare_data():
     """Data processing and data partitioning"""
     prapare_ner = PrepareNer()
+    # entity samples_statistics
+    samples_statistics = defaultdict(int)
     dataset = []
     for file_ann in Path(Config.annotation_data_dir).rglob("*.ann"):
         file_txt = str(file_ann.with_suffix('.txt'))
-        sents, tags = prapare_ner.get_data(file_txt, file_ann)
+        sents, tags = prapare_ner.get_annoteted_data(file_txt, file_ann, samples_statistics)
         dataset.append((sents, tags))
-    print('data size: {}'.format(len(dataset)))
-    order = list(range(len(dataset)))
-    random.shuffle(order)
-    train_dataset = [dataset[idx] for idx in order[:430]]
-    val_dataset = [dataset[idx] for idx in order[430:485]]
-    test_dataset = [dataset[idx] for idx in order[485:]]
+    all_case_num = len(dataset)
+    train_count = int(all_case_num * 0.8)
+    valid_count = int(all_case_num * 0.1)
+    test_count = all_case_num - train_count - valid_count
 
-    write_to_file(os.path.join(Config.ner_data_dir, 'train'), train_dataset)
-    write_to_file(os.path.join(Config.ner_data_dir, 'val'), val_dataset)
-    write_to_file(os.path.join(Config.ner_data_dir, 'test'), test_dataset)
+    order = list(range(all_case_num))
+    random.shuffle(order)
+    train_dataset = [dataset[idx] for idx in order[:train_count]]
+    valid_dataset = [dataset[idx] for idx in order[train_count:train_count + valid_count]]
+    test_dataset = [dataset[idx] for idx in order[train_count + valid_count:]]
+
+    train_samples_count = write_to_file(os.path.join(Config.ner_data_dir, 'train'), train_dataset)
+    valid_samples_count = write_to_file(os.path.join(Config.ner_data_dir, 'valid'), valid_dataset)
+    test_samples_count = write_to_file(os.path.join(Config.ner_data_dir, 'test'), test_dataset)
+
+    print('\nall cases num: {}'.format(all_case_num))
+    print("train cases: {}, samples: {}".format(train_count, train_samples_count))
+    print("valid cases: {}, samples: {}".format(valid_count, valid_samples_count))
+    print("test cases: {}, samples: {}".format(test_count, test_samples_count))
+    return dict(samples_statistics)
 
 
 def write_to_file(data_dir, dataset):
     os.makedirs(data_dir, exist_ok=True)
     sentences_file = os.path.join(data_dir, 'sentences.txt')
     tags_file = os.path.join(data_dir, 'tags.txt')
+    print("write to: {}, sentences.txt, tags.txt".format(data_dir))
+    samples_count = 0
     with open(sentences_file, 'w') as writer_sent, open(tags_file, 'w') as writer_tag:
         for sents, tags in dataset:
             for sent, tag_seq in zip(sents, tags):
                 writer_sent.write(' '.join(sent) + '\n')
                 writer_tag.write(' '.join(tag_seq) + '\n')
+                samples_count += 1
+    return samples_count
 
 
 def build_tags():
     tags = set()
-    data_types = ['train', 'val', 'test']
+    data_types = ['train', "valid", 'test']
     for data_type in data_types:
         data_path = os.path.join(Config.ner_data_dir, data_type, 'tags.txt')
         with open(data_path, 'r') as reader:
@@ -208,13 +219,13 @@ def build_tags():
     return tags
 
 
-def draw_histogram(statistics):
+def draw_histogram(samples_statistics):
     """Draw according to statistical results"""
     import matplotlib.pyplot as plt
     plt.rcParams['font.sans-serif'] = ['Arial Unicode MS']
 
-    items = sorted(statistics.items(), key=lambda x: x[1], reverse=True)
-    print('sorted statistics: {}'.format(items))
+    items = sorted(samples_statistics.items(), key=lambda x: x[1], reverse=True)
+    print('sorted samples_statistics: {}'.format(items))
     labels = [item[0] for item in items]
     num = [item[1] for item in items]
     plt.bar(labels, num)
@@ -229,7 +240,7 @@ def draw_histogram(statistics):
 
 
 def create_ner_data():
-    prepare_data()
-    print('statistics: {}'.format(statistics))
+    samples_statistics = prepare_data()
+    print('\nsamples_statistics: {}'.format(samples_statistics))
     # build tag set
     build_tags()

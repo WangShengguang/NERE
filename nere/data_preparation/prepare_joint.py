@@ -18,12 +18,12 @@ class PrepareJointData(object):
 
     def get_re_data(self):
         """Loads the data for each type in types from data_dir.
-        :param data_type ['train', 'val', 'test']
+        :param data_type ['train', "valid", 'test']
         :return data2id, 全部转换为对应的id list
         """
         tokenizer = BertTokenizer.from_pretrained(Config.bert_pretrained_dir, do_lower_case=True)
         re_data = defaultdict(list)
-        for data_type in ["train", "val", "test"]:
+        for data_type in ["train", "valid", "test"]:
             with open(os.path.join(Config.re_data_dir, "{}.txt".format(data_type)), "r", encoding="utf-8") as f:
                 for line in f:
                     splits = line.strip().split('\t')
@@ -34,7 +34,7 @@ class PrepareJointData(object):
     def get_ner_data(self):
         all_sentences = []
         all_tags = []
-        for data_type in ["train", "val", "test"]:
+        for data_type in ["train", "valid", "test"]:
             with open(os.path.join(Config.ner_data_dir, data_type, "sentences.txt"), "r", encoding="utf-8") as f:
                 _sentences = [line.strip() for line in f.readlines()]
                 all_sentences.extend(_sentences)
@@ -81,7 +81,7 @@ class PrepareJointData(object):
         ner_val_sents = ner_unique_sents_li[ner_test_cnt:]
         write_ner_data_to_file(joint_train_sents, data_type="train", ner_data=ner_data)
         write_ner_data_to_file(ner_test_sents, data_type="test", ner_data=ner_data)
-        write_ner_data_to_file(ner_val_sents, data_type="val", ner_data=ner_data)
+        write_ner_data_to_file(ner_val_sents, data_type="valid", ner_data=ner_data)
         # RE data
         os.makedirs(Config.joint_re_data_dir, exist_ok=True)
         shutil.copyfile(src=os.path.join(Config.re_data_dir, "ent_labels.txt"),
@@ -94,7 +94,7 @@ class PrepareJointData(object):
         re_val_sents = re_unique_sents_li[re_test_cnt:]
         write_re_data_to_file(joint_train_sents, data_type="train", re_data=re_data)
         write_re_data_to_file(re_test_sents, data_type="test", re_data=re_data)
-        write_re_data_to_file(re_val_sents, data_type="val", re_data=re_data)
+        write_re_data_to_file(re_val_sents, data_type="valid", re_data=re_data)
         # import ipdb
         # ipdb.set_trace()
 
