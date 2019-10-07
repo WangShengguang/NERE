@@ -78,10 +78,9 @@ class ACNN(nn.Module):
         wo_norm_tile = wo_norm.unsqueeze(1).repeat(1, self.num_rel_tags, 1)  # (bs, num_classes, num_filters)
         all_distance = torch.norm(wo_norm_tile - F.normalize(self.rel_weight, dim=1), dim=2)
         # all_distance = torch.norm(wo_norm_tile - rel_label_embed, 2, 2)  # (bs, num_classes)
-        if rel_label is not None:
-            loss = self.loss(wo_norm, all_distance, rel_label)
-            return loss
-        else:
-            predict = torch.argmin(all_distance, dim=1)
-            # predict = torch.argmax(all_distance, dim=1)
+        predict = all_distance.argmin(dim=1)
+        if rel_label is None:
             return predict
+        else:
+            loss = self.loss(wo_norm, all_distance, rel_label)
+            return predict, loss

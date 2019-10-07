@@ -52,15 +52,14 @@ class BERTSoftmax(BertPreTrainedModel):
         seq_output = self.dropout(seq_output)
         # shape: (batch_size, seq_length, num_labels)
         logits = self.classifier(seq_output)
-
-        if labels is not None:
-            loss = self.loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
-            return loss
+        tag_indices = logits.argmax(dim=2)  # shape: (batch_size, seq_length)
+        if attention_mask is not None:
+            mask = attention_mask.view(-1) == 1
+            tag_indices = tag_indices.view(-1)[mask]
         else:
-            _, tag_indices = logits.max(dim=2)  # shape: (batch_size, seq_length)
-            if attention_mask is not None:
-                mask = attention_mask.view(-1) == 1
-                tag_indices = tag_indices.view(-1)[mask]
-            else:
-                tag_indices = tag_indices
+            tag_indices = tag_indices
+        if labels is None:
             return tag_indices
+        else:
+            loss = self.loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
+            return tag_indices, loss

@@ -165,7 +165,7 @@ class Evaluator(Predictor):
         precision, recall, f1 = ner_f1_score(_true_tags, _pred_tags)
         return acc, precision, recall, f1
 
-    def get_re_metrics(self, y_true, y_pred, average):
+    def get_re_metrics(self, y_true, y_pred, average="macro"):
         metric_labels = self.data_helper.relation_metric_labels
         acc = accuracy_score(y_true, y_pred)
         recall = recall_score(y_true, y_pred, labels=metric_labels, average=average)

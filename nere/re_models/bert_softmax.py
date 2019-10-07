@@ -162,11 +162,10 @@ class BERTSoftmax(BertPreTrainedModel):
         all_features = self.dropout(all_features)
 
         logits = self.classifier(all_features)
+        label_indices = logits.argmax(dim=1)
 
-        if labels is not None:
-            # loss_fct = CrossEntropyLoss()
-            loss = self.loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
-            return loss
-        else:
-            _, label_indices = logits.max(dim=1)
+        if labels is None:
             return label_indices
+        else:
+            loss = self.loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
+            return label_indices, loss

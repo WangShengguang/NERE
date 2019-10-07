@@ -16,7 +16,7 @@ torch.manual_seed(rand_seed)
 random.seed(rand_seed)
 np.random.seed(rand_seed)
 
-tmp_suffix = "-tmp"
+tmp_suffix = "-join_data"
 
 
 class PreprocessConfig(object):
@@ -24,10 +24,10 @@ class PreprocessConfig(object):
     predefined_file = os.path.join(annotation_data_dir, 'predefined_lables.txt')
     # output as  model input
     # preprocess output & model input
-    ner_data_dir = os.path.join(data_dir, "ner")
-    re_data_dir = os.path.join(data_dir, "re")
-    joint_ner_data_dir = os.path.join(data_dir, "joint", "ner")
-    joint_re_data_dir = os.path.join(data_dir, "joint", "re")
+    # ner_data_dir = os.path.join(data_dir, "ner")# old 各自
+    # re_data_dir = os.path.join(data_dir, "re")
+    ner_data_dir = os.path.join(data_dir, "joint", "ner")  # 新生成joint
+    re_data_dir = os.path.join(data_dir, "joint", "re")
     # pretrain model
     bert_pretrained_dir = os.path.join(data_dir, "bert-base-chinese-pytorch")
     bert_config_path = os.path.join(bert_pretrained_dir, 'bert_config.json')
@@ -39,8 +39,8 @@ class DataConfig(PreprocessConfig):
     """
     # output
     # tf_ckpt_dir = os.path.join(output_dir, "tf_ckpt")
-    torch_ckpt_dir = os.path.join(output_dir, "torch_ckpt")
-    keras_ckpt_dir = os.path.join(output_dir, "keras_ckpt")
+    torch_ckpt_dir = os.path.join(output_dir, "torch_ckpt") + tmp_suffix
+    keras_ckpt_dir = os.path.join(output_dir, "keras_ckpt") + tmp_suffix
     for _dir in [torch_ckpt_dir, keras_ckpt_dir]:
         os.makedirs(_dir, exist_ok=True)
 
@@ -59,17 +59,17 @@ class TrainConfig(object):
     # early stop
     max_epoch_nums = 10
     min_epoch_nums = 3
-    patience = 0.01
+    # patience = 0.01
     patience_num = 3
     # model save & load
     load_pretrain = True  # 断点续训
-    max_to_keep = 10
+    max_to_keep = 1
     check_step = 100
 
 
 class EvaluateConfig(object):
-    load_model_mode = "max_step"
-    # load_model_mode = "min_loss"
+    # load_model_mode = "max_step"
+    load_model_mode = "min_loss"
 
 
 class BertConfig(object):

@@ -68,9 +68,9 @@ class BiLSTM_ATT(nn.Module):
         att_out = torch.transpose(att_out, 1, 2)
         all_features = self.dropout_att(att_out)
         logits = self.classifier(all_features)
+        label_indices = logits.argmax(dim=1)
         if labels is None:
-            label_indices = logits.argmax(dim=1)
             return label_indices
         else:
             loss = self.criterion_loss(logits.view(-1, self.num_ent_tags), labels.view(-1))
-            return loss
+            return label_indices, loss

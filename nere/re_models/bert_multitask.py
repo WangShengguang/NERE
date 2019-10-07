@@ -168,12 +168,14 @@ class BERTMultitask(BertPreTrainedModel):
         all_features = self.dropout(all_features)
 
         logits = self.classifier(all_features)
+        label_indices = logits.argmax(dim=1)
 
-        if labels is not None:
+        if labels is None:
+            return label_indices
+        else:
             fake_labels = batch_data['fake_rel_labels']
             fake_rel_label_features = self.rel_label_embeddings(fake_labels)
             fake_rel_label_features = self.rel_emb_layer_norm(fake_rel_label_features)
-
             # shape: (batch_size, hidden_size)
             rel_label_features = self.rel_label_embeddings(labels)
             rel_label_features = self.rel_emb_layer_norm(rel_label_features)
@@ -184,10 +186,7 @@ class BERTMultitask(BertPreTrainedModel):
             loss_cls = self.cross_entroy(logits.view(-1, self.num_labels), labels.view(-1))
             loss_transe = self.margin_ranking(pos, neg)
             if self.mode == "joint":
-                return loss_cls, loss_transe
+                return label_indices, loss_cls, loss_transe
             else:
                 loss = loss_cls + loss_transe * self.coefficient
-                return loss
-        else:
-            _, label_indices = logits.max(dim=1)
-            return label_indices
+                return label_indices, loss

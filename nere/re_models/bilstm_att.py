@@ -80,9 +80,9 @@ class BiLSTM_ATT(nn.Module):
         all_features = self.dropout(all_features)
 
         logits = self.classifier(all_features)
+        label_indices = logits.argmax(dim=1)
         if rel_labels is None:
-            label_indices = logits.argmax(dim=1)
             return label_indices
         else:
             loss = self.criterion_loss(logits, rel_labels)
-            return loss
+            return label_indices, loss

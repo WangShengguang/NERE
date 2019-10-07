@@ -29,25 +29,25 @@ def keras_run(task, model_name, mode):
     Trainer(task="ner", model_name=model_name).run(mode=mode)
 
 
-def join_run(mode):
+def join_run(load_mode, mode, fix_loss_rate=True):
     ner_model = "BERTCRF"
     re_model = "BERTMultitask"
-    fix_loss_rate = False
-    if fix_loss_rate:
-        logging_config("joint_{}_fixed_rate.log".format(mode))
-        from nere.joint_trainer import JoinTrainer
-        ner_loss_rate = 0.15
-        re_loss_rate = 0.8
-        transe_rate = 0.05
-        model_trainer = JoinTrainer(task="joint", ner_model=ner_model, re_model=re_model,
-                                    fix_loss_rate=True, ner_loss_rate=ner_loss_rate, re_loss_rate=re_loss_rate,
-                                    transe_rate=transe_rate)
-    else:
-        logging_config("joint_{}.log".format(mode))
-        from nere.torch_trainer import JoinTrainer
-        model_trainer = JoinTrainer(task="joint", ner_model=ner_model, re_model=re_model)
-    # 训练
-    model_trainer.run(mode=mode)
+    logging_config("joint_{}.log".format(mode))
+    #
+    logging_config("joint_{}.log".format(mode))
+    from nere.joint_trainer import JoinTrainer
+    JoinTrainer(load_mode=load_mode, ner_model=ner_model, re_model=re_model, fix_loss_rate=False).run(mode=mode)
+    # if fix_loss_rate:
+    # logging_config("joint_{}_fixed_rate.log".format(mode))
+    from nere.joint_trainer import JoinTrainer
+    for ner_loss_rate, re_loss_rate, transe_rate in [(0.15, 0.8, 0.05),
+                                                     (0.1, 0.9, 0.001),
+                                                     (0.5, 0.5, 0.01),
+                                                     (0.8, 0.1, 0.01)]:
+        JoinTrainer(load_mode=load_mode, ner_model=ner_model, re_model=re_model,
+                    fix_loss_rate=True, ner_loss_rate=ner_loss_rate, re_loss_rate=re_loss_rate,
+                    transe_rate=transe_rate).run(mode=mode)
+    # else:
 
 
 def run_all(task, mode):
@@ -119,7 +119,7 @@ def main():
     group = parser.add_mutually_exclusive_group(required=True)  # 一组互斥参数,且至少需要互斥参数中的一个
     group.add_argument('--ner', type=str, choices=NER_models + ["all"], help="Named Entity Recognition，实体识别")
     group.add_argument('--re', type=str, choices=RE_models + ["all"], help="Relation Extraction，关系抽取")
-    group.add_argument('--joint', action="store_true", help="联合训练，load pretrain 的模式")
+    group.add_argument('--joint', type=str, choices=["join", "respective"], help="联合训练，load pretrain 的模式")
     parser.add_argument('--mode', type=str, choices=["train", "test"],
                         required=bool({"--ner", "--re", "--joint"} & set(sys.argv)),
                         help="模型训练or测试")
@@ -147,7 +147,7 @@ def main():
     elif args.re:
         torch_run(task="re", model_name=args.re, mode=mode)
     elif args.joint:
-        join_run(mode=mode)
+        join_run(load_mode=args.joint, mode=mode)
     elif args.kgg:
         kgg(data_set=args.dataset)
     elif args.data_prepare:
@@ -160,7 +160,7 @@ if __name__ == '__main__':
         python3 manage.py --data_prepare joint 
         python3 manage.py --ner BERTCRF --mode train   
         python3 manage.py --re BERTMultitask --mode train  
-        python3 manage.py --joint --mode train  
+        python3 manage.py --joint join/respective --mode train  
         nohup python3 manage.py --kgg --dataset traffic_all &>kgg.out&
     """
 

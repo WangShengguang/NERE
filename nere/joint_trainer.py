@@ -12,7 +12,7 @@ from nere.torch_trainer import Trainer
 
 
 class JoinTrainer(Trainer):
-    def __init__(self, task, ner_model, re_model,
+    def __init__(self, load_mode, ner_model, re_model,
                  fix_loss_rate=False,
                  ner_loss_rate=0.15, re_loss_rate=0.8, transe_rate=0.05):
         self.fixed_rate = fix_loss_rate
@@ -25,12 +25,14 @@ class JoinTrainer(Trainer):
             self.transe_rate = transe_rate
         else:
             self.model_name = "joint_{}_{}".format(ner_model, re_model)
-        super().__init__(model_name=self.model_name, task=task)
+        super().__init__(model_name=self.model_name, task="joint")
+        self.load_mode = load_mode
         self.ner_model = ner_model
         self.re_model = re_model
-        self.ner_path = os.path.join(self.model_dir, "{}_ner.bin".format(self.model_name))
-        self.re_path = os.path.join(self.model_dir, "{}_re.bin".format(self.model_name))
-        self.joint_path = os.path.join(self.model_dir, self.model_name + ".bin")
+        self.ner_path = os.path.join(self.model_dir, self.model_name, "{}_ner.bin".format(self.model_name))
+        self.re_path = os.path.join(self.model_dir, self.model_name, "{}_re.bin".format(self.model_name))
+        self.joint_path = os.path.join(self.model_dir, self.model_name, self.model_name + ".bin")
+        os.makedirs(os.path.dirname(self.joint_path), exist_ok=True)
         self.best_val_f1_dict = {"NER": 0, "RE": 0, "Joint": {"Joint": 0, "NER": 0, "RE": 0}}
 
     def get_model(self):
@@ -42,7 +44,7 @@ class JoinTrainer(Trainer):
         #                      num_ner_labels=num_ner_tags, num_re_labels=num_re_tags,
         #                      ner_loss_rate=0.1, re_loss_rate=0.8, transe_rate=0.1)
         model = JointNerRe(num_ner_labels=num_ner_tags, num_re_labels=num_re_tags)
-        if self.task == "joint":
+        if self.load_mode == "join":
             if Config.load_pretrain and Path(self.joint_path).is_file():
                 model.load_state_dict(torch.load(self.joint_path))  # 断点续训
                 logging.info("load model from {}".format(self.joint_path))
@@ -52,7 +54,7 @@ class JoinTrainer(Trainer):
                 model.ner.load_state_dict(torch.load(self.ner_path))  # 断点续训
                 model.re.load_state_dict(torch.load(self.re_path))  # 断点续训
                 logging.info("load model from ner_path:{}, re_path:{}".format(self.ner_path, self.re_path))
-        self.init_model(model)
+        model = self.init_model(model)
         return model
 
     def evaluate_save(self, model):
@@ -112,24 +114,42 @@ class JoinTrainer(Trainer):
                                                           batch_size=Config.batch_size // 2,  # TODO CUDA out of memory.
                                                           re_type="torch"):
                 try:
-                    joint_loss, ner_loss, re_loss, transe_loss = model(batch_data, is_train=True)
+                    ((ner_pred, re_pred),
+                     (joint_loss, ner_loss, re_loss, transe_loss),
+                     (ner_loss_rate, re_loss_rate, trane_loss_rate)) = model(batch_data, is_train=True)
                 except Exception as e:
                     logging.error(e)
                     gc.collect()
                     continue
-                loss = joint_loss
+                logging.info("\n---------------------------------------------------------")
                 if self.fixed_rate:
                     loss = self.ner_loss_rate * ner_loss + self.re_loss_rate * re_loss + self.transe_rate * transe_loss
+                else:
+                    logging.info("not fixed rate, model.ner_loss_rate: {:.4f}, model.re_loss_rate: {:.4f}, "
+                                 "model.transe_loss_rate: {:.4f}".format(
+                        ner_loss_rate.item(), re_loss_rate.item(), trane_loss_rate.item()))
+                    loss = joint_loss
                 self.backfoward(loss, model)
                 self.global_step += 1
                 self.scheduler.step(epoch=epoch_num)  # 更新学习率
-                if self.global_step % 10 == 0:  # Config.check_step == 0:
-                    _log_str = ("* global_step:{}, ner_loss: {:.4f}, re_loss: {:.4f}, transe_loss: {:.4f}，"
-                                "joint_loss: {:.4f}").format(
-                        self.global_step, ner_loss.item(), re_loss.item(), transe_loss.item(), loss.item())
-                    logging.info(_log_str)
-                    # print(_log_str)
-                    # self.save_best_loss_model(loss)
+                # log
+                acc, precision, recall, f1 = self.evaluator.evaluate_ner(
+                    batch_y_ent_ids=batch_data["ent_tags"].tolist(), batch_pred_ent_ids=ner_pred.tolist())
+                logging.info("{} joint train NER global_step:{} loss: {:.4f}, "
+                             "acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
+                    self.model_name, self.global_step, ner_loss.item(), acc, precision, recall, f1))
+                acc, precision, recall, f1 = self.evaluator.get_re_metrics(
+                    y_true=batch_data["rel_labels"].tolist(), y_pred=re_pred.tolist())
+                logging.info("{} joint train RE global_step:{} loss: {:.4f}, "
+                             "acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
+                    self.model_name, self.global_step, re_loss.item(), acc, precision, recall, f1))
+                logging.info("* joint global_step:{}, ner_loss: {:.4f}, re_loss: {:.4f}, transe_loss: {:.4f}，"
+                             "joint_loss: {:.4f}".format(
+                    self.global_step, ner_loss.item(), re_loss.item(), transe_loss.item(), loss.item()))
+                # if self.global_step % 10 == 0:  # Config.check_step == 0:
+                #     logging.info(_log_str)
+                # print(_log_str)
+                # self.save_best_loss_model(loss)
             # self.save_best_loss_model(loss)
             self.evaluate_save(model)
             logging.info("epoch_num: {} end .".format(epoch_num))

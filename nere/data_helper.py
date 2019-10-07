@@ -17,9 +17,9 @@ class DataHelper(object):
         因为需要对比单模型和联合训练，所以需要保证单模型的所用数据和联合训练所用数据是相同的
     """
 
-    def __init__(self, ner_data_dir=Config.ner_data_dir, re_data_dir=Config.re_data_dir):
-        self.ner_data_dir = ner_data_dir
-        self.re_data_dir = re_data_dir
+    def __init__(self):
+        self.ner_data_dir = Config.ner_data_dir
+        self.re_data_dir = Config.re_data_dir
         self.load_re_tags()
         self.load_ner_tags()
         self.tokenizer = BertTokenizer.from_pretrained(Config.bert_pretrained_dir, do_lower_case=True)
@@ -28,14 +28,17 @@ class DataHelper(object):
         self.task_data_type = ""
 
     def load_ner_tags(self):
-        with open(os.path.join(self.ner_data_dir, "tags.txt"), "r", encoding="utf-8") as f:
+        tags_file = os.path.join(self.ner_data_dir, "tags.txt")
+        with open(tags_file, "r", encoding="utf-8") as f:
             ent_tags = [line.strip() for line in f.readlines()]
         self.ent_tag2id = {tag: id for id, tag in enumerate(ent_tags)}
         self.id2ent_tag = {id: tag for tag, id in self.ent_tag2id.items()}
         # self.entity_label2abbr_id = {entity: idx for idx, (entity, tag) in enumerate(entity_tags.items())}
+        logging.info("load ner tags from :{}".format(tags_file))
 
     def load_re_tags(self):
-        with open(os.path.join(self.re_data_dir, "rel_labels.txt"), "r", encoding="utf-8") as f:
+        re_label_file = os.path.join(self.re_data_dir, "rel_labels.txt")
+        with open(re_label_file, "r", encoding="utf-8") as f:
             relation_labels = [line.strip() for line in f.readlines()]  # 搭乘、其他、投保
             self.rel_label2id = {rel_label: id for id, rel_label in enumerate(relation_labels)}
         with open(os.path.join(self.re_data_dir, "ent_labels.txt"), "r", encoding="utf-8") as f:
@@ -45,6 +48,7 @@ class DataHelper(object):
         # Other types of relationships do not participate in the assessment
         self.relation_metric_labels = [rel_id for rel_id in self.rel_label2id.values()
                                        if rel_id != self.other_rel_label_id]
+        logging.info("load re labels from :{}".format(re_label_file))
 
     def get_ner_data(self, data_type):
         """Loads the data for each type in types from data_dir.
@@ -68,6 +72,9 @@ class DataHelper(object):
         for tag, sentence in zip(tags, sentences):
             assert len(tag) == len(sentence)
         data = {"sents": sentences, "ent_tags": tags}
+        _log_str = "* get {} ner samples: {}".format(data_type, len(sentences))
+        logging.info(_log_str)
+        print(_log_str)
         return data
 
     def get_re_data(self, data_type):
@@ -108,7 +115,10 @@ class DataHelper(object):
             assert len(sentences) == len(rel_labels)
         data = {'ent_labels': ent_labels, 'e1_indices': e1_indices, 'e2_indices': e2_indices,
                 'pos1': pos1, 'pos2': pos2, 'sents': sentences, 'rel_labels': rel_labels}
-        print("* get_re_data entity_match_omit sents/sentences: {}/{}".format(entity_match_omit, len(sentences)))
+        _log_str = "get {} re data entity_match_omit sents/samples: {}/{}".format(
+            data_type, entity_match_omit, len(sentences))
+        logging.info(_log_str)
+        print(_log_str)
         return data
 
     def find_sub_list(self, all_list, sub_list):
@@ -144,7 +154,9 @@ class DataHelper(object):
             joint_data["pos2"].append(re_data["pos2"][i])
             joint_data["sents"].append(re_data["sents"][i])
             joint_data["rel_labels"].append(re_data["rel_labels"][i])
-        print("* get_joint train sents samples, {}".format(len(joint_data["sents"])))
+        _log_str = ("* get joint train samples, {}".format(len(joint_data["sents"])))
+        logging.info(_log_str)
+        print(_log_str)
         return joint_data
 
     def get_joint_data(self, data_type):
@@ -174,8 +186,10 @@ class DataHelper(object):
                     if key != "ent_tags":
                         re_data[key].pop(i - omit)
                 omit += 1
-        print("* get_joint_data, {}, omit/all: {}/{}, joint_sents/unique_sents: {}/{}".format(
-            data_type, omit, len(hash_sents), len(re_data["sents"]), len(unique_sents)))
+        _log_str = "* get_joint_data, {}, omit/all: {}/{}, joint samples/unique_sents: {}/{}".format(
+            data_type, omit, len(hash_sents), len(re_data["sents"]), len(unique_sents))
+        logging.info(_log_str)
+        print(_log_str)
         assert len(re_data["sents"]) == len(re_data["ent_tags"])
         return re_data
 

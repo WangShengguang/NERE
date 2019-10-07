@@ -112,7 +112,7 @@ def write_re_data_to_file(sent_txts, data_type, re_data):
             for sent in sents:
                 f.write(sent + "\n")
                 cnt += 1
-    print("re data_type: {}, {}".format(data_type, cnt))
+    print("re {}, {}".format(data_type, cnt))
 
 
 def write_ner_data_to_file(sent_txts, data_type, ner_data):
@@ -133,7 +133,7 @@ def write_ner_data_to_file(sent_txts, data_type, ner_data):
         for sent, tag_seq in zip(sents, tags):
             writer_sent.write(sent + '\n')
             writer_tag.write(tag_seq + '\n')
-    print("ner data_type: {}, {}".format(data_type, len(sents)))
+    print("ner {}, {}".format(data_type, len(sents)))
 
 
 class SimSent(object):

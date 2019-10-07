@@ -56,15 +56,17 @@ class BERTCRF(BertPreTrainedModel):
         # shape: (batch_size, seq_length, num_labels)
         fc_output = self.fc(seq_output)
 
-        if labels is not None:
+        if attention_mask is None:
+            pred = self.crf.decode(fc_output)
+        else:
+            pred = self.crf.decode(fc_output, attention_mask)
+
+        if labels is None:
+            return pred
+        else:
             if attention_mask is not None:
                 # shape: (1,)
                 loss = -self.crf(fc_output, labels, attention_mask, reduction='token_mean')
-                return loss
             else:
-                return -self.crf(fc_output, labels, reduction='token_mean')
-        else:
-            if attention_mask is not None:
-                return self.crf.decode(fc_output, attention_mask)
-            else:
-                return self.crf.decode(fc_output)
+                loss = -self.crf(fc_output, labels, reduction='token_mean')
+            return pred, loss

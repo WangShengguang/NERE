@@ -42,12 +42,17 @@ class BaseTrainer(object):
         ]
         self.optimizer = Adam(optimizer_grouped_parameters, lr=Config.learning_rate)
         self.scheduler = LambdaLR(self.optimizer, lr_lambda=lambda epoch: 1 / (1 + 0.05 * epoch))
+        # model, self.optimizer = amp.initialize(model, self.optimizer, opt_level="O1")  # 这里是“欧一”，不是“零一”
+        return model
 
     def backfoward(self, loss, model):
         if Config.gpu_nums > 1 and Config.multi_gpu:
             loss = loss.mean()  # mean() to average on multi-gpu
         if Config.gradient_accumulation_steps > 1:
             loss = loss / Config.gradient_accumulation_steps
+        # https://zhuanlan.zhihu.com/p/79887894
+        # with amp.scale_loss(loss, self.optimizer) as scaled_loss:
+        #     scaled_loss.backward()
         # compute gradients of all variables wrt loss
         loss.backward(retain_graph=True)
 
@@ -128,7 +133,7 @@ class Trainer(BaseTrainer):
         if Config.load_pretrain and Path(self.model_path).is_file():
             model.load_state_dict(torch.load(self.model_path))  # 断点续训
             logging.info("* load model from {}".format(self.model_path))
-        self.init_model(model)
+        model = self.init_model(model)
         return model
 
     def save_best_loss_model(self, loss, model):
@@ -142,8 +147,6 @@ class Trainer(BaseTrainer):
         # with torch.no_grad():  # 适用于测试阶段，不需要反向传播
         self.evaluator.set_model(model=model, fixed_seq_len=self.fixed_seq_len)
         acc, precision, recall, f1 = self.evaluator.test(data_type="valid")
-        logging.info("acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
-            acc, precision, recall, f1))
         if f1 > self.best_val_f1:
             torch.save(model.state_dict(), self.model_path)
             logging.info("** - Found new best F1 ,save to model_path: {}".format(self.model_path))
@@ -154,16 +157,17 @@ class Trainer(BaseTrainer):
             # self.best_val_f1 = f1
         else:
             self.patience_counter += 1
+        return acc, precision, recall, f1
 
     def train_step(self, batch_data, model):
         if self.task == "ner":
-            loss = model(input_ids=batch_data["sents"], attention_mask=batch_data["sents"].gt(0),
-                         labels=batch_data["ent_tags"])
+            pred, loss = model(input_ids=batch_data["sents"], attention_mask=batch_data["sents"].gt(0),
+                               labels=batch_data["ent_tags"])
         elif self.task == "re":
-            loss = model(batch_data, batch_data["rel_labels"])
+            pred, loss = model(batch_data, batch_data["rel_labels"])
         else:
             raise ValueError(self.task)
-        return loss
+        return pred, loss
 
     def run(self, mode):
         model = self.get_model()
@@ -181,15 +185,32 @@ class Trainer(BaseTrainer):
             model.train()
             for batch_data in self.data_helper.batch_iter(self.task, data_type="train", batch_size=Config.batch_size,
                                                           re_type="torch", fixed_seq_len=self.fixed_seq_len):
-                loss = self.train_step(batch_data, model)
+                try:
+                    if self.task == "ner":
+                        pred, loss = model(input_ids=batch_data["sents"], attention_mask=batch_data["sents"].gt(0),
+                                           labels=batch_data["ent_tags"])
+                        acc, precision, recall, f1 = self.evaluator.evaluate_ner(
+                            batch_y_ent_ids=batch_data["ent_tags"].tolist(), batch_pred_ent_ids=pred.tolist())
+                    else:  # self.task == "re":
+                        pred, loss = model(batch_data, batch_data["rel_labels"])
+                        acc, precision, recall, f1 = self.evaluator.get_re_metrics(
+                            y_true=batch_data["rel_labels"].tolist(), y_pred=pred.tolist())
+                except Exception as e:
+                    logging.error(e)
+                    continue
                 self.backfoward(loss, model)
                 self.global_step += 1
                 self.scheduler.step(epoch=epoch_num)  # 更新学习率
-                if self.global_step % Config.check_step == 0:
-                    logging.info("* global_step:{} loss: {:.4f}".format(self.global_step, loss.item()))
-                    # print("* global_step:{} loss: {:.4f}".format(self.global_step, loss.item()))
-                    # self.save_best_loss_model(loss)
-            self.evaluate_save(model)
+                logging.info("train {} {} global_step:{} loss: {:.4f}, "
+                             "acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
+                    self.task, self.model_name, self.global_step, loss.item(), acc, precision, recall, f1))
+                # if self.global_step % Config.check_step == 0:
+                #     logging.info("* global_step:{} loss: {:.4f}".format(self.global_step, loss.item()))
+                # print("* global_step:{} loss: {:.4f}".format(self.global_step, loss.item()))
+                # self.save_best_loss_model(loss)
+            acc, precision, recall, f1 = self.evaluate_save(model)
+            logging.info("valid {} {} acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
+                self.task, self.model_name, acc, precision, recall, f1))
             logging.info("epoch_num: {} end .".format(epoch_num))
             # Early stopping and logging best f1
             if self.patience_counter >= Config.patience_num and epoch_num > Config.min_epoch_nums:
