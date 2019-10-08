@@ -53,9 +53,9 @@ class Trainer(object):
         # print(f"train:{len(train_data)},valid：{len(valid_data)}, test:{len(test_data)}")
         return (x_train, y_train)  # , (x_valid, y_valid)
 
-    def get_model(self):
+    def get_model(self, mode="train"):
         vocab_size = len(self.data_helper.tokenizer.vocab)
-        if Config.load_pretrain and os.path.isfile(self.model_path):
+        if (Config.load_pretrain and os.path.isfile(self.model_path)) or mode == "test":
             # 载入预训练model
             model = load_model(self.model_path, custom_objects={"CRF": CRF,
                                                                 "crf_loss": crf_loss,
@@ -65,21 +65,22 @@ class Trainer(object):
             from nere.ner_models.keras_models import get_bilstm, get_bilstm_crf
             get_model = {"bilstm": get_bilstm, "bilstm_crf": get_bilstm_crf}[self.model_name]
             model = get_model(vocab_size=vocab_size, num_classes=self.num_classes)
+            model.summary()
         # elif self.task == "re":
         #     from nere.re.keras_models import get_bilstm, get_bilstm_crf
         #     get_model = {"bilstm": get_bilstm, "bilstm_crf": get_bilstm_crf}[self.model_name]
         #     model = get_model(vocab_size=vocab_size, num_ent_tags=num_ent_tags, num_rel_tags=num_rel_tags)
         else:
             raise ValueError(self.model_name)
-        model.summary()
         return model
 
     def run(self, mode="train"):
-        model = self.get_model()
+        model = self.get_model(mode)
         if mode == "test":
-            evaluator = Evaluator(task=self.task, model_name=self.model_name, framework="keras", load_model=True)
+            evaluator = Evaluator(task=self.task, model_name=self.model_name, framework="keras", load_model=False)
+            evaluator.set_model(model=model, fixed_seq_len=Config.max_sequence_len)
             acc, precision, recall, f1 = evaluator.test(data_type="test")
-            _test_log = "{} test acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
+            _test_log = "{} test acc: {:.3f}, precision: {:.3f}, recall: {:.3f}, f1: {:.3f}".format(
                 self.model_name, acc, precision, recall, f1)
             logging.info(_test_log)
             print(_test_log)

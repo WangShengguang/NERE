@@ -53,11 +53,9 @@ class BERTSoftmax(BertPreTrainedModel):
         # shape: (batch_size, seq_length, num_labels)
         logits = self.classifier(seq_output)
         tag_indices = logits.argmax(dim=2)  # shape: (batch_size, seq_length)
-        if attention_mask is not None:
-            mask = attention_mask.view(-1) == 1
-            tag_indices = tag_indices.view(-1)[mask]
-        else:
-            tag_indices = tag_indices
+        # if attention_mask is not None:
+        #     mask = attention_mask.view(-1) == 1
+        #     tag_indices = tag_indices.view(-1)[mask]
         if labels is None:
             return tag_indices
         else:

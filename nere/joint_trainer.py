@@ -60,9 +60,9 @@ class JoinTrainer(Trainer):
     def evaluate_save(self, model):
         self.evaluator.set_model(model=model)
         metrics = self.evaluator.test(data_type="valid")
-        logging.info("*model:{} valid, NER acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
+        logging.info("*model:{} valid, NER acc: {:.3f}, precision: {:.3f}, recall: {:.3f}, f1: {:.3f}".format(
             self.model_name, *metrics["NER"]))
-        logging.info("*model:{} valid,  RE acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
+        logging.info("*model:{} valid,  RE acc: {:.3f}, precision: {:.3f}, recall: {:.3f}, f1: {:.3f}".format(
             self.model_name, *metrics["RE"]))
         ner_f1 = metrics["NER"][-1]
         re_f1 = metrics["RE"][-1]
@@ -70,7 +70,7 @@ class JoinTrainer(Trainer):
         if ave_f1 > self.best_val_f1_dict["Joint"]["Joint"]:
             # model_to_save = model.module if hasattr(model, 'module') else model
             torch.save(model.state_dict(), self.joint_path)  # Only save the model it-self
-            logging.info("** - Found new best NER&RE F1,ave_f1:{:.4f},ner_f1:{:.4f},re_f1:{:.4f}"
+            logging.info("** - Found new best NER&RE F1,ave_f1:{:.3f},ner_f1:{:.3f},re_f1:{:.3f}"
                          " ,save to model_path: {}".format(ave_f1, ner_f1, re_f1, self.joint_path))
             # if ave_f1 - self.best_val_f1_dict["Joint"]["Joint"] < Config.patience:
             #     self.patience_counter += 1
@@ -82,12 +82,12 @@ class JoinTrainer(Trainer):
         if ner_f1 > self.best_val_f1_dict["NER"]:
             self.best_val_f1_dict["NER"] = ner_f1
             torch.save(model.ner.state_dict(), self.ner_path)  # Only save the model it-self
-            logging.info("** - Found new best NER F1: {:.4f} ,save to model_path: {}".format(
+            logging.info("** - Found new best NER F1: {:.3f} ,save to model_path: {}".format(
                 ner_f1, self.ner_path))
         if re_f1 > self.best_val_f1_dict["RE"]:
             self.best_val_f1_dict["RE"] = re_f1
             torch.save(model.re.state_dict(), self.re_path)  # Only save the model it-self
-            logging.info("** - Found new best RE F1:{:.4f} ,save to model_path: {}".format(
+            logging.info("** - Found new best RE F1:{:.3f} ,save to model_path: {}".format(
                 re_f1, self.re_path))
 
     def run(self, mode):
@@ -98,9 +98,9 @@ class JoinTrainer(Trainer):
         if mode == "test":
             self.evaluator.set_model(model=model)
             metrics = self.evaluator.test(data_type="test")
-            _ner_log = "*{} test NER acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
+            _ner_log = "*{} test NER acc: {:.3f}, precision: {:.3f}, recall: {:.3f}, f1: {:.3f}".format(
                 self.model_name, *metrics["NER"])
-            _re_log = "*{} test RE acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
+            _re_log = "*{} test RE acc: {:.3f}, precision: {:.3f}, recall: {:.3f}, f1: {:.3f}".format(
                 self.model_name, *metrics["RE"])
             logging.info(_ner_log)
             logging.info(_re_log)
@@ -125,8 +125,8 @@ class JoinTrainer(Trainer):
                 if self.fixed_rate:
                     loss = self.ner_loss_rate * ner_loss + self.re_loss_rate * re_loss + self.transe_rate * transe_loss
                 else:
-                    logging.info("not fixed rate, model.ner_loss_rate: {:.4f}, model.re_loss_rate: {:.4f}, "
-                                 "model.transe_loss_rate: {:.4f}".format(
+                    logging.info("not fixed rate, model.ner_loss_rate: {:.3f}, model.re_loss_rate: {:.3f}, "
+                                 "model.transe_loss_rate: {:.3f}".format(
                         ner_loss_rate.item(), re_loss_rate.item(), trane_loss_rate.item()))
                     loss = joint_loss
                 self.backfoward(loss, model)
@@ -135,26 +135,27 @@ class JoinTrainer(Trainer):
                 # log
                 acc, precision, recall, f1 = self.evaluator.evaluate_ner(
                     batch_y_ent_ids=batch_data["ent_tags"].tolist(), batch_pred_ent_ids=ner_pred.tolist())
-                logging.info("{} joint train NER global_step:{} loss: {:.4f}, "
-                             "acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
-                    self.model_name, self.global_step, ner_loss.item(), acc, precision, recall, f1))
+                logging.info("{} joint train NER  epoch_num: {}, global_step:{} ner_loss: {:.3f}, "
+                             "acc: {:.3f}, precision: {:.3f}, recall: {:.3f}, f1: {:.3f}".format(
+                    self.model_name, self.global_step, epoch_num, ner_loss.item(), acc, precision, recall, f1))
                 acc, precision, recall, f1 = self.evaluator.get_re_metrics(
                     y_true=batch_data["rel_labels"].tolist(), y_pred=re_pred.tolist())
-                logging.info("{} joint train RE global_step:{} loss: {:.4f}, "
-                             "acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
-                    self.model_name, self.global_step, re_loss.item(), acc, precision, recall, f1))
-                logging.info("* joint global_step:{}, ner_loss: {:.4f}, re_loss: {:.4f}, transe_loss: {:.4f}，"
-                             "joint_loss: {:.4f}".format(
-                    self.global_step, ner_loss.item(), re_loss.item(), transe_loss.item(), loss.item()))
+                logging.info("{} joint train RE epoch_num: {}, global_step:{} re_loss: {:.3f}, "
+                             "acc: {:.3f}, precision: {:.3f}, recall: {:.3f}, f1: {:.3f}".format(
+                    self.model_name, epoch_num, self.global_step, re_loss.item(), acc, precision, recall, f1))
+                logging.info("* {} joint train epoch_num: {}, global_step:{}, "
+                             "ner_loss: {:.3f}, re_loss: {:.3f}, transe_loss: {:.3f}，joint_loss: {:.3f}".format(
+                    self.model_name, epoch_num, self.global_step,
+                    ner_loss.item(), re_loss.item(), transe_loss.item(), loss.item()))
                 # if self.global_step % 10 == 0:  # Config.check_step == 0:
                 #     logging.info(_log_str)
                 # print(_log_str)
                 # self.save_best_loss_model(loss)
             # self.save_best_loss_model(loss)
             self.evaluate_save(model)
-            logging.info("epoch_num: {} end .".format(epoch_num))
+            logging.info("epoch_num: {} end ...".format(epoch_num))
             # Early stopping and logging best f1
             if self.patience_counter >= Config.patience_num and epoch_num > Config.min_epoch_nums:
-                logging.info("{}, Best val f1: {:.4f} best loss:{:.4f}".format(
+                logging.info("{}, Best val f1: {:.3f} best loss:{:.3f}".format(
                     self.model_name, self.best_val_f1, self.best_loss))
                 break

@@ -140,7 +140,7 @@ class Trainer(BaseTrainer):
         if loss <= self.best_loss:
             torch.save(model.state_dict(), self.model_path)
             self.best_loss = loss
-            _log = "loss: {:.4f}, save to :{}".format(loss, self.model_path)
+            _log = "loss: {:.3f}, save to :{}".format(loss, self.model_path)
             logging.info(_log)
 
     def evaluate_save(self, model):
@@ -174,7 +174,7 @@ class Trainer(BaseTrainer):
         if mode == "test":
             self.evaluator.set_model(model=model, fixed_seq_len=self.fixed_seq_len)
             acc, precision, recall, f1 = self.evaluator.test(data_type="test")
-            _test_log = "* model: {} {}, test acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
+            _test_log = "* model: {} {}, test acc: {:.3f}, precision: {:.3f}, recall: {:.3f}, f1: {:.3f}".format(
                 self.task, self.model_name, acc, precision, recall, f1)
             logging.info(_test_log)
             print(_test_log)
@@ -197,23 +197,26 @@ class Trainer(BaseTrainer):
                             y_true=batch_data["rel_labels"].tolist(), y_pred=pred.tolist())
                 except Exception as e:
                     logging.error(e)
+                    import ipdb,traceback
+                    traceback.print_exc()
+                    ipdb.set_trace()
                     continue
                 self.backfoward(loss, model)
                 self.global_step += 1
                 self.scheduler.step(epoch=epoch_num)  # 更新学习率
-                logging.info("train {} {} global_step:{} loss: {:.4f}, "
-                             "acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
-                    self.task, self.model_name, self.global_step, loss.item(), acc, precision, recall, f1))
+                logging.info("train {} {} epoch_num: {}, global_step:{} loss: {:.3f}, "
+                             "acc: {:.3f}, precision: {:.3f}, recall: {:.3f}, f1: {:.3f}".format(
+                    self.task, self.model_name, epoch_num, self.global_step, loss.item(), acc, precision, recall, f1))
                 # if self.global_step % Config.check_step == 0:
-                #     logging.info("* global_step:{} loss: {:.4f}".format(self.global_step, loss.item()))
-                # print("* global_step:{} loss: {:.4f}".format(self.global_step, loss.item()))
+                #     logging.info("* global_step:{} loss: {:.3f}".format(self.global_step, loss.item()))
+                # print("* global_step:{} loss: {:.3f}".format(self.global_step, loss.item()))
                 # self.save_best_loss_model(loss)
             acc, precision, recall, f1 = self.evaluate_save(model)
-            logging.info("valid {} {} acc: {:.4f}, precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(
-                self.task, self.model_name, acc, precision, recall, f1))
-            logging.info("epoch_num: {} end .".format(epoch_num))
+            logging.info("valid {} {} epoch_num: {}, acc: {:.3f}, precision: {:.3f}, recall: {:.3f}, f1: {:.3f}".format(
+                self.task, self.model_name, epoch_num, acc, precision, recall, f1))
+            logging.info("epoch_num: {} end .\n".format(epoch_num))
             # Early stopping and logging best f1
             if self.patience_counter >= Config.patience_num and epoch_num > Config.min_epoch_nums:
-                logging.info("{}, Best val f1: {:.4f} best loss:{:.4f}".format(
+                logging.info("{}, Best val f1: {:.3f} best loss:{:.3f}".format(
                     self.model_name, self.best_val_f1, self.best_loss))
                 break

@@ -2,6 +2,9 @@ import os
 
 import keras
 import numpy as np
+from keras_contrib.layers import CRF
+from keras_contrib.losses import crf_loss
+from keras_contrib.metrics import crf_viterbi_accuracy
 from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_score
 
 from config import Config
@@ -17,18 +20,19 @@ class Predictor(object):
 
     def load_model(self, task, model_name):
         if self.framework == "keras":
-            model_path = os.path.join(Config.keras_ckpt_dir, task, model_name)
-            assert os.path.isfile(model_path)
-            model = keras.models.load_model(model_path)
+            model_path = os.path.join(Config.keras_ckpt_dir, "{}.hdf5".format(model_name))
+            assert os.path.isfile(model_path), f"{model_path} not exist."
+            model = keras.models.load_model(model_path, custom_objects={
+                "CRF": CRF, "crf_loss": crf_loss, "crf_viterbi_accuracy": crf_viterbi_accuracy})
         elif self.framework == "tf":
             model = None
         elif self.framework == "torch":
             model = None  # torch.load
+            model.eval()  # 切记，否则有偏差
         else:
             raise ValueError(self.framework)
         if task == "ner" and model_name in ["BiLSTM_ATT"]:
             self.fixed_seq_len = Config.max_sequence_len
-        model.eval()  # 切记，否则有偏差
         return model
 
     def set_model(self, model, fixed_seq_len=None):

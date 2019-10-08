@@ -12,3 +12,5 @@ tqdm
 pandas
 ipdb
 ipython
+tensorboard
+tensorboardX

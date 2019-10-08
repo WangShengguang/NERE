@@ -105,9 +105,9 @@ def data_prepare(task):
 
 
 Keras_ner_models = ["bilstm", "bilstm_crf"]
-torch_ner_models = ["BERTCRF", "BERTSoftmax", "BiLSTM"]  # BiLSTM_ATT 无效果
+torch_ner_models = ["BERTCRF", "BERTSoftmax"]  # , "BiLSTM"]  # BiLSTM_ATT TODO 两个均无效果
 NER_models = torch_ner_models + Keras_ner_models
-RE_models = ["BERTMultitask", "BERTSoftmax", "BiLSTM_ATT", "BiLSTM"]  # ACNN 无效果
+RE_models = ["BERTMultitask", "BERTSoftmax", "BiLSTM_ATT", "BiLSTM"]  # ACNN  TODO 无效果
 
 
 def main():
