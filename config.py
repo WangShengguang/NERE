@@ -57,7 +57,7 @@ class TrainConfig(object):
     weight_decay = 0.01
     clip_grad = 2
     # early stop
-    max_epoch_nums = 10
+    max_epoch_nums = 30
     min_epoch_nums = 3
     # patience = 0.01
     patience_num = 3

@@ -84,7 +84,7 @@ class Trainer(BaseTrainer):
         self.fixed_seq_len = None
 
     def get_re_model(self):
-        from nere.re_models import BERTMultitask, BERTSoftmax, BiLSTM_ATT, ACNN, BiLSTM
+        from nere.re_models import BERTMultitask, BERTSoftmax, ATT_BiLSTM, BiLSTM_ATT, ACNN, BiLSTM
         vocab_size = len(self.data_helper.tokenizer.vocab)
         num_ent_tags = len(self.data_helper.ent_tag2id)
         num_rel_tags = len(self.data_helper.rel_label2id)
@@ -94,6 +94,10 @@ class Trainer(BaseTrainer):
             model = BERTMultitask.from_pretrained(Config.bert_pretrained_dir, num_labels=num_rel_tags)
         elif self.model_name == "BiLSTM_ATT":
             model = BiLSTM_ATT(vocab_size, num_ent_tags, num_rel_tags, Config.ent_emb_dim, Config.batch_size)
+        elif self.model_name == "ATT_BiLSTM":
+            self.fixed_seq_len = Config.max_sequence_len
+            model = ATT_BiLSTM(vocab_size, num_ent_tags, num_rel_tags,
+                               Config.ent_emb_dim, Config.batch_size, self.fixed_seq_len)
         elif self.model_name == "BiLSTM":
             model = BiLSTM(vocab_size, num_ent_tags, num_rel_tags)
         elif self.model_name == "ACNN":
@@ -147,20 +151,18 @@ class Trainer(BaseTrainer):
         # with torch.no_grad():  # 适用于测试阶段，不需要反向传播
         self.evaluator.set_model(model=model, fixed_seq_len=self.fixed_seq_len)
         acc, precision, recall, f1 = self.evaluator.test(data_type="valid")
-        if f1 > self.best_val_f1:
+        # torch.save(model.state_dict(), self.model_path)
+        if f1 >= self.best_val_f1:
             torch.save(model.state_dict(), self.model_path)
-            logging.info("** - Found new best F1 ,save to model_path: {}".format(self.model_path))
-            # if f1 - self.best_val_f1 < Config.patience:
-            #     self.patience_counter += 1
-            # else:
-            #     self.patience_counter = 0
-            # self.best_val_f1 = f1
+            logging.info("** - Found new best F1：{:.3f} ,save to model_path: {}".format(f1, self.model_path))
+            self.best_val_f1 = f1
+            self.patience_counter = 0
         else:
             self.patience_counter += 1
         return acc, precision, recall, f1
 
     def train_step(self, batch_data, model):
-        if self.task == "ner":
+        if self.task == " ner":
             pred, loss = model(input_ids=batch_data["sents"], attention_mask=batch_data["sents"].gt(0),
                                labels=batch_data["ent_tags"])
         elif self.task == "re":
@@ -170,15 +172,28 @@ class Trainer(BaseTrainer):
         return pred, loss
 
     def run(self, mode):
+        """
+        https://www.pytorchtutorial.com/pytorch-note5-save-and-restore-models/#i-2
+        :param mode:
+        :return:
+        """
         model = self.get_model()
-        if mode == "test":
+        if mode != "train":
             self.evaluator.set_model(model=model, fixed_seq_len=self.fixed_seq_len)
-            acc, precision, recall, f1 = self.evaluator.test(data_type="test")
+            acc, precision, recall, f1 = self.evaluator.test(data_type=mode)
             _test_log = "* model: {} {}, test acc: {:.3f}, precision: {:.3f}, recall: {:.3f}, f1: {:.3f}".format(
                 self.task, self.model_name, acc, precision, recall, f1)
             logging.info(_test_log)
             print(_test_log)
             return
+        # evaluate
+        self.evaluator.set_model(model=model, fixed_seq_len=self.fixed_seq_len)
+        acc, precision, recall, f1 = self.evaluator.test(data_type="valid")
+        _log_str = ("acc: {:.3f}, precision: {:.3f}, recall: {:.3f}, f1: {:.3f}".format(acc, precision, recall, f1))
+        print(_log_str)
+        logging.info(_log_str)
+        self.best_val_f1 = f1
+        # init done
         logging.info("{}-{} start train , epoch_nums:{}...".format(self.task, self.model_name, Config.max_epoch_nums))
         for epoch_num in trange(1, Config.max_epoch_nums + 1,
                                 desc="{} {} train epoch num".format(self.task, self.model_name)):
@@ -197,18 +212,14 @@ class Trainer(BaseTrainer):
                             y_true=batch_data["rel_labels"].tolist(), y_pred=pred.tolist())
                 except Exception as e:
                     logging.error(e)
-                    import ipdb,traceback
-                    traceback.print_exc()
-                    ipdb.set_trace()
                     continue
                 self.backfoward(loss, model)
                 self.global_step += 1
                 self.scheduler.step(epoch=epoch_num)  # 更新学习率
-                logging.info("train {} {} epoch_num: {}, global_step:{} loss: {:.3f}, "
-                             "acc: {:.3f}, precision: {:.3f}, recall: {:.3f}, f1: {:.3f}".format(
-                    self.task, self.model_name, epoch_num, self.global_step, loss.item(), acc, precision, recall, f1))
                 # if self.global_step % Config.check_step == 0:
-                #     logging.info("* global_step:{} loss: {:.3f}".format(self.global_step, loss.item()))
+                #    logging.info("train {} {} epoch_num: {}, global_step:{} loss: {:.3f}, "
+                #              "acc: {:.3f}, precision: {:.3f}, recall: {:.3f}, f1: {:.3f}".format(
+                #     self.task, self.model_name, epoch_num, self.global_step, loss.item(), acc, precision, recall, f1))
                 # print("* global_step:{} loss: {:.3f}".format(self.global_step, loss.item()))
                 # self.save_best_loss_model(loss)
             acc, precision, recall, f1 = self.evaluate_save(model)
@@ -217,6 +228,6 @@ class Trainer(BaseTrainer):
             logging.info("epoch_num: {} end .\n".format(epoch_num))
             # Early stopping and logging best f1
             if self.patience_counter >= Config.patience_num and epoch_num > Config.min_epoch_nums:
-                logging.info("{}, Best val f1: {:.3f} best loss:{:.3f}".format(
-                    self.model_name, self.best_val_f1, self.best_loss))
                 break
+        logging.info("{}, Best val f1: {:.3f} best loss:{:.3f}".format(
+            self.model_name, self.best_val_f1, self.best_loss))

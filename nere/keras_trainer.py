@@ -76,10 +76,10 @@ class Trainer(object):
 
     def run(self, mode="train"):
         model = self.get_model(mode)
-        if mode == "test":
+        if mode != "train":
             evaluator = Evaluator(task=self.task, model_name=self.model_name, framework="keras", load_model=False)
             evaluator.set_model(model=model, fixed_seq_len=Config.max_sequence_len)
-            acc, precision, recall, f1 = evaluator.test(data_type="test")
+            acc, precision, recall, f1 = evaluator.test(data_type=mode)
             _test_log = "{} test acc: {:.3f}, precision: {:.3f}, recall: {:.3f}, f1: {:.3f}".format(
                 self.model_name, acc, precision, recall, f1)
             logging.info(_test_log)

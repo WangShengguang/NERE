@@ -60,9 +60,9 @@ class BiLSTM_ATT(nn.Module):
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None):
         embeds = self.word_embeds(input_ids)
-        embeds = torch.transpose(embeds, 0, 1)
+        # embeds = torch.transpose(embeds, 0, 1)
         lstm_out, (h_n, h_c) = self.lstm(embeds)  # seq_len, batch, num_directions * hidden_size
-        lstm_out = lstm_out.permute(1, 2, 0)
+        # lstm_out = lstm_out.permute(1, 2, 0)
         lstm_out = self.dropout_lstm(lstm_out)  # batch_size, hidden_dim, sequence_len
         att_out = F.tanh(self.attention(lstm_out))
         att_out = torch.transpose(att_out, 1, 2)

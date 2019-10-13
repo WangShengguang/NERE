@@ -3,9 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class BiLSTM_ATT(nn.Module):
-    def __init__(self, vocab_size, num_ent_tags, num_rel_tags, ent_emb_dim, batch_size):
-        super().__init__()
+class ATT_BiLSTM(nn.Module):
+    def __init__(self, vocab_size, num_ent_tags, num_rel_tags, ent_emb_dim, batch_size, sequence_len):
+        super(ATT_BiLSTM, self).__init__()
         self.batch_size = batch_size
         self.vocab_size = vocab_size
         self.embedding_dim = ent_emb_dim
@@ -25,16 +25,15 @@ class BiLSTM_ATT(nn.Module):
         self.dropout_att = nn.Dropout(p=0.5)
         self.dropout = nn.Dropout(0.5)
 
-        self.att_weight = nn.Parameter(torch.randn(self.batch_size, 1, self.hidden_dim))
+        self.att_weight = nn.Parameter(torch.randn(self.batch_size, sequence_len, self.embedding_dim))
 
         self.classifier = nn.Linear(ent_emb_dim * 2 + self.hidden_dim * 3, self.num_rel_tags)
         self.criterion_loss = nn.CrossEntropyLoss(size_average=True)
 
     def attention(self, H):
         M = F.tanh(H)
-        a = F.softmax(torch.bmm(self.att_weight, M), 2)
-        a = torch.transpose(a, 1, 2)
-        return torch.bmm(H, a)
+        a = F.softmax(torch.bmm(self.att_weight, M.permute(0, 2, 1)), 2)
+        return torch.bmm(a, H)
 
     def get_ent_features(self, seq_output, ent_masks):
         """
@@ -64,19 +63,18 @@ class BiLSTM_ATT(nn.Module):
 
         # embeds = torch.cat((self.word_embeds(sents), self.pos1_embeds(pos1), self.pos2_embeds(pos2)), 2)
         embeds = self.word_embeds(sents)
-        embeds = torch.transpose(embeds, 0, 1)
+        att_out = self.attention(embeds)
 
-        lstm_out, (h_n, h_c) = self.bi_lstm(embeds)
-        lstm_out = torch.transpose(lstm_out, 0, 1)  # sequence_len, batch_size, hidden_dim
+        lstm_out, (h_n, h_c) = self.bi_lstm(att_out)  # sequence_len, batch_size, hidden_dim
+
+        # _lstm_out = torch.transpose(lstm_out, 0, 1)  # batch_size, sequence_len, hidden_dim
         # shape: (batch_size, hidden_size)
         e1_features = self.get_ent_features(lstm_out, e1_masks)
         e2_features = self.get_ent_features(lstm_out, e2_masks)
 
-        lstm_out = torch.transpose(lstm_out, 1, 2)
+        # lstm_out = self.dropout_lstm(lstm_out[-1])  # sequence_len, hidden_dim, batch_size
 
-        lstm_out = self.dropout_lstm(lstm_out)  # sequence_len, hidden_dim, batch_size
-        att_out = self.attention(lstm_out).view(self.batch_size, -1)
-        all_features = torch.cat((ent_label_features, att_out, e1_features, e2_features), dim=1)
+        all_features = torch.cat((ent_label_features, lstm_out[:, -1, :], e1_features, e2_features), dim=1)
         all_features = self.dropout(all_features)
 
         logits = self.classifier(all_features)

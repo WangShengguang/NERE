@@ -67,24 +67,21 @@ class JoinTrainer(Trainer):
         ner_f1 = metrics["NER"][-1]
         re_f1 = metrics["RE"][-1]
         ave_f1 = (ner_f1 + re_f1) / 2
-        if ave_f1 > self.best_val_f1_dict["Joint"]["Joint"]:
+        if ave_f1 >= self.best_val_f1_dict["Joint"]["Joint"]:
             # model_to_save = model.module if hasattr(model, 'module') else model
             torch.save(model.state_dict(), self.joint_path)  # Only save the model it-self
             logging.info("** - Found new best NER&RE F1,ave_f1:{:.3f},ner_f1:{:.3f},re_f1:{:.3f}"
                          " ,save to model_path: {}".format(ave_f1, ner_f1, re_f1, self.joint_path))
-            # if ave_f1 - self.best_val_f1_dict["Joint"]["Joint"] < Config.patience:
-            #     self.patience_counter += 1
-            # else:
-            #     self.patience_counter = 0
+            self.patience_counter = 0
             self.best_val_f1_dict["Joint"] = {"Joint": ave_f1, "NER": ner_f1, "RE": re_f1}
         else:
             self.patience_counter += 1
-        if ner_f1 > self.best_val_f1_dict["NER"]:
+        if ner_f1 >= self.best_val_f1_dict["NER"]:
             self.best_val_f1_dict["NER"] = ner_f1
             torch.save(model.ner.state_dict(), self.ner_path)  # Only save the model it-self
             logging.info("** - Found new best NER F1: {:.3f} ,save to model_path: {}".format(
                 ner_f1, self.ner_path))
-        if re_f1 > self.best_val_f1_dict["RE"]:
+        if re_f1 >= self.best_val_f1_dict["RE"]:
             self.best_val_f1_dict["RE"] = re_f1
             torch.save(model.re.state_dict(), self.re_path)  # Only save the model it-self
             logging.info("** - Found new best RE F1:{:.3f} ,save to model_path: {}".format(
@@ -95,9 +92,9 @@ class JoinTrainer(Trainer):
         logging.info(_log_str)
         print(_log_str)
         model = self.get_model()
-        if mode == "test":
+        if mode != "train":
             self.evaluator.set_model(model=model)
-            metrics = self.evaluator.test(data_type="test")
+            metrics = self.evaluator.test(data_type=mode)
             _ner_log = "*{} test NER acc: {:.3f}, precision: {:.3f}, recall: {:.3f}, f1: {:.3f}".format(
                 self.model_name, *metrics["NER"])
             _re_log = "*{} test RE acc: {:.3f}, precision: {:.3f}, recall: {:.3f}, f1: {:.3f}".format(
@@ -107,6 +104,7 @@ class JoinTrainer(Trainer):
             print(_ner_log)
             print(_re_log)
             return
+
         for epoch_num in trange(1, Config.max_epoch_nums + 2,
                                 desc="{} {} train epoch num".format(self.task, self.model_name)):
             model.train()
@@ -156,6 +154,6 @@ class JoinTrainer(Trainer):
             logging.info("epoch_num: {} end ...".format(epoch_num))
             # Early stopping and logging best f1
             if self.patience_counter >= Config.patience_num and epoch_num > Config.min_epoch_nums:
-                logging.info("{}, Best val f1: {:.3f} best loss:{:.3f}".format(
-                    self.model_name, self.best_val_f1, self.best_loss))
                 break
+        logging.info("{}, Best val f1: {:.3f} best loss:{:.3f}".format(
+            self.model_name, self.best_val_f1, self.best_loss))

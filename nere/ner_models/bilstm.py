@@ -31,5 +31,5 @@ class BiLSTM(nn.Module):
             return pred
         else:  # train
             # https://blog.csdn.net/jiangpeng59/article/details/79583292
-            loss = self.cel_loss(output.permute(0, 2, 1), labels)
+            loss = self.cel_loss(output.view(-1, self.num_ent_tags), labels.view(-1))
             return pred, loss

@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
-root_dir = os.path.dirname(cur_dir)
+log_dir = os.path.join(cur_dir, "logs")
 
 
 class LogParser(object):
@@ -35,7 +35,7 @@ class LogParser(object):
         joint_logs = defaultdict(lambda: {"global_step": [],
                                           "ner_loss": [], "re_loss": [], "transe_loss": [], "joint_loss": []})
         for log_name in ["joint_train.log.1", "joint_train.log"]:
-            log_file = os.path.join(root_dir, log_name)
+            log_file = os.path.join(log_dir, log_name)
             with open(log_file, "r", encoding="utf-8") as f:
                 for line in f:
                     ner_result = ner_patten.findall(line)
@@ -96,46 +96,50 @@ def plot():
 
     # sns.lineplot(x="step", y="value", hue="variable", data=pd.melt(df_data, ['step']))
     def draw(logs, max_step_num=None):
-        for mode_name, metrics_dict in logs.items():
-            global_steps = metrics_dict["global_step"]
-            metrics_dict.pop("global_step")
+        # print(logs)
+        for model_name, metrics_dict in logs.items():
+            x = metrics_dict["global_step"]
             df_data = pd.DataFrame(metrics_dict)
-            if isinstance(max_step_num, int):
-                for i, step in enumerate(global_steps):
-                    if step >= max_step_num:
-                        df_data = df_data[:i]
-                        print(df_data)
-                        # import ipdb
-                        # ipdb.set_trace()
-                        break
-            print(mode_name)
+            df_data.to_csv(f"./{model_name}.csv", index=False, sep=",")
+            print(model_name)
+            if model_name != "joint_0.1BERTCRF_0.9BERTMultitask_0.001TransE":
+                continue
             # df_data.rolling(window=10000).mean()
-            for i, key in enumerate(metrics_dict.keys()):
-                # plt.subplot(i)
-                plt.subplot(2, 4, i + 1)
-                # sns.lineplot(x="global_step", y=key, data=df_data)
-                # plt.plot(df_data["global_step"], df_data[key], 'bo-', markevery=100)
-
-                # poly = np.polyfit(df_data["global_step"], df_data[key], 15)
-                # poly_y = np.poly1d(poly)(df_data["global_step"])
-
+            markers = ["1", "2", "3", "4", "s", "p", "h", "H", "8", "x", "*", "o", "d"]
+            fig, axs = plt.subplots(1, 1)
+            ax = axs
+            for i, (key, values) in enumerate(metrics_dict.items()):
+                print(key)
+                if key in ["global_step"]:
+                    continue
                 avg_interval = 500
-                total_len = len(global_steps)
+                total_len = len(values)
                 # total_len = 10000
                 x = np.arange(0, total_len, avg_interval)
                 y = []
                 for start in range(0, total_len, avg_interval):
                     end = start + avg_interval if start + avg_interval < total_len else total_len
-                    y.append(np.mean(df_data[key][start:end]))
-                plt.xlabel("step")
-                plt.ylabel(key)
-                plt.plot(x, y)
+                    y.append(np.mean(values[start:end]))
+
+                print(len(x), len(y))
+                ax.set_xlabel("Step")
+                ax.set_ylabel("Loss")
+                # import ipdb
+                # ipdb.set_trace()
+                ax.set_title("Joint Model For NER and RE")
+                key = {"ner_loss": "NER Loss", "re_loss": "RE Loss", "transe_loss": "TransE Loss",
+                       "joint_loss": "Joint Loss"}[key]
+                ax.plot(x, y, label=key, marker=markers[i])
 
                 # plt.plot(df_data["global_step"], poly_y)
                 # df_data[key] = poly_y
                 # sns.lineplot(x="global_step", y=key, data=df_data)
-
-                # sns.lmplot('global_step', key, data=df_data, hue='global_step', ci=None, order=2, truncate=True)
+            ax.legend(loc='upper right', shadow=True, ncol=1)
+            # sns.lmplot('global_step', key, data=df_data, hue='global_step', ci=None, order=2, truncate=True)
+            plt.grid(linestyle='-.')
+            fig.savefig("./{}.png".format(model_name), format='png',
+                        transparent=True, dpi=300, pad_inches=0,
+                        bbox_inches='tight')
             plt.show()
 
     # joint_y_keys = ["ner_loss", "re_loss", "transe_loss", "joint_loss"]

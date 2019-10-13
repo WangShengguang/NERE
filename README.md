@@ -91,7 +91,7 @@ python3 manage.py --kgg
 
 ## tips
     测试时 
-    test_batch_size必须一致，否则导致batch_seq_len变化，导致指标变化
+    test_batch_size必须一致，否则导致batch_seq_len变化，导致指标变化；影响重大！！！
     torch测试前必须做
     model.eval() 
     --- 

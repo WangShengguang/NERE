@@ -1,4 +1,3 @@
-# coding:utf8
 import torch
 import torch.nn as nn
 
@@ -58,11 +57,8 @@ class BiLSTM(nn.Module):
         ent_label_features = self.ent_label_embeddings(ent_labels).view(self.batch_size, -1)
         embeds = self.word_embeds(sents)
         embeds = torch.transpose(embeds, 0, 1)
-
         lstm_out, (h_n, h_c) = self.lstm(embeds)  # (seq_len, batch, num_directions * hidden_size)
-
         lstm_out = torch.transpose(lstm_out, 0, 1)
-        # shape: (batch_size, hidden_size)
         e1_features = self.get_ent_features(lstm_out, e1_masks)
         e2_features = self.get_ent_features(lstm_out, e2_masks)
         lstm_out = self.dropout_lstm(lstm_out)
